@@ -1,0 +1,24 @@
+[legacy]
+menu-accelerator-enabled=false
+
+[legacy/keybindings]
+next-tab='<Primary>Right'
+prev-tab='<Primary>Left'
+
+[legacy/profiles:]
+list=['b1dcc9dd-5262-4d8d-a863-c897e6d979b9', '78e429c2-e3ab-412e-96f1-7fb3dd1bbc83']
+
+[legacy/profiles:/:78e429c2-e3ab-412e-96f1-7fb3dd1bbc83]
+audible-bell=false
+background-color='rgb(0,0,0)'
+bold-color-same-as-fg=true
+cursor-colors-set=false
+foreground-color='rgb(0,255,0)'
+use-system-font=false
+use-theme-colors=false
+visible-name='matrix'
+
+[legacy/profiles:/:b1dcc9dd-5262-4d8d-a863-c897e6d979b9]
+audible-bell=false
+font='Monospace 12'
+use-system-font=false
