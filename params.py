@@ -2,28 +2,23 @@ import random
 from termcolor import colored
 import os
 
-NCURSES = False
-WEIGHTED_EDGES = True
-PRIVATE_VALUE = False
+OPTION = False
+NOISE = True
 
-PIPE_PATH = "/home/frags/pipe"
-if not os.path.exists(PIPE_PATH):
-    os.mkfifo(PIPE_PATH)
-
-ROUNDS = 20
+ROUNDS = 200
 ROW_DELAY=.0001
 
-BUYER_FACTOR = .5
-SELLER_FACTOR = 1.5
+BUYER_FACTOR = random.uniform(.5, .8)
+SELLER_FACTOR = random.uniform(1.2, 1.5)
 
 INCREASE_MAX = 1
 INCREASE_MIN = .9
 DECREASE_MAX = 0.9
 DECREASE_MIN = 0.8
 
-NBUYERS = 25
-MSELLERS = 11
-MAX_NETWORK_SIZE = 75
+NBUYERS = 15
+MSELLERS = 7
+MAX_NETWORK_SIZE = 24
 
 LOW = .2 #Note: try negative values
 HIGH = 1.2
@@ -52,10 +47,11 @@ def SHUFFLE(x):
     return [x[z] for z in y]
 
 MINGROUPSIZE = 2
+MAXGROUPSIZE = 3
 # randomly sample from a list 
 def RANDOM(x):
     y = [n for n in range(len(x))]
-    u = random.sample(y, random.randint(MINGROUPSIZE,len(x)))
+    u = random.sample(y, random.randint(MINGROUPSIZE,MAXGROUPSIZE))
     return [x[z] for z in u]
 
 def SAMPLE(x, m):

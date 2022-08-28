@@ -1,11 +1,11 @@
 import matplotlib.pyplot as plt
-import matplotlib.pyplot as plt
 import matplotlib
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation as animation
 import seaborn as sns
 import pandas as pd
 from scipy.cluster.hierarchy import dendrogram, linkage
+import plotly.express as px 
 
 from params import * 
 from auctioneer import Auctioneer
@@ -20,42 +20,54 @@ sns.set()
 
 class NXPlot:
 
-    fig = plt.figure()
+    fig = []
     axes = []
+    id = 1
     
     def __init__(self, subplots):
-        plt.clf()
+        self.fig.append(plt.figure())
+        self.axes.append([])
         for n in subplots:
-            self.axes.append(self.fig.add_subplot(n))
-        self.axes.append(self.fig.add_subplot(133, projection='3d'))
-        #for ax in self.axes:
-        #    self.format_axes(ax)
-
-    def corr(self, mat, G, nodes):
-        self.nxheatmap(mat)
-        self.nxgraph(G, nodes)
-        self.draw(1)
-
-    def nxheatmap(self, mat):
-        ax = plt.subplot(121).axes
-        plt.sca(ax)
+            self.axes[self.id-1].append(self.fig[self.id-1].add_subplot(n[0], projection=n[1]))
+        self.id = NXPlot.id
+        NXPlot.id += 1
+        for ax in self.axes[self.id-1]:
+            self.format_axes(ax)
+    
+    def set_axes(self, sp):
+        plt.figure(self.id)
+        ax = plt.subplot(sp).axes
         plt.cla()
+        plt.sca(ax)
+        self.format_axes(ax)
+        return ax
+
+    def format_axes(self, ax):
+        ax.grid(False)
+        for dim in (ax.xaxis, ax.yaxis):
+            dim.set_ticks([])
+
+    def dendrogram(self, adj_matrix, sp):
+        Z = linkage(adj_matrix.corr(), 'ward')
+        dendrogram(Z, labels=adj_matrix.corr().index, leaf_rotation=0)
+
+    def nxheatmap(self, mat, sp):
+        ax = self.set_axes(sp)
         sns.heatmap(mat, ax=ax)
 
-    def nxgraph(self, G, nodes):  
-        ax = plt.subplot(122).axes
-        plt.sca(ax)
-        plt.cla()
+    def nxgraph(self, G, nodes, sp):  
+        ax = self.set_axes(sp)
         color_map = []
-        for node in G.nodes:
-            color_map.append(nodes[node]['color'])
+        if nodes:
+            for node in G.nodes:
+                color_map.append(nodes[node]['color'])
+        else:
+            colormap = sns.cm
         pos = nx.spring_layout(G, dim=3, seed=779)
         nx.draw(G, ax=ax, with_labels=True, node_color=color_map)
 
     def nxgraph3d(self, G):
-        ax = plt.subplot(133).axes
-        plt.sca(ax)
-        plt.cla()
+        ax = self.set_axes(sp)
         pos = nx.spring_layout(G, dim=3, seed=779)
         # Extract node and edge positions from the layout
         node_xyz = np.array([pos[v] for v in sorted(G)])
@@ -67,21 +79,13 @@ class NXPlot:
             ax.plot(*vizedge.T, color="tab:gray")
         plt.show()
 
-
-    def format_axes(self, ax):
-        ax.grid(False)
-        for dim in (ax.xaxis, ax.yaxis):
-            dim.set_ticks([])
-
-    def draw(self, n):
-        plt.figure(n)
+    def draw(self):
+        plt.figure(self.id)
         plt.draw()
         plt.pause(.1)
 
 
 
-
-matplotlib.interactive(True)
 
 '''
 def plot_graph(self, auction_round, winner):

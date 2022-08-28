@@ -8,7 +8,7 @@ python-versions = ">=3.6"
 
 [[package]]
 name = "fonttools"
-version = "4.34.4"
+version = "4.37.1"
 description = "Tools to manipulate font files"
 category = "main"
 optional = false
@@ -38,7 +38,7 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "matplotlib"
-version = "3.5.2"
+version = "3.5.3"
 description = "Python plotting package"
 category = "main"
 optional = false
@@ -53,11 +53,11 @@ packaging = ">=20.0"
 pillow = ">=6.2.0"
 pyparsing = ">=2.2.1"
 python-dateutil = ">=2.7"
-setuptools_scm = ">=4"
+setuptools_scm = ">=4,<7"
 
 [[package]]
 name = "networkx"
-version = "2.8.5"
+version = "2.8.6"
 description = "Python package for creating and manipulating graphs and networks"
 category = "main"
 optional = false
@@ -65,14 +65,14 @@ python-versions = ">=3.8"
 
 [package.extras]
 default = ["numpy (>=1.19)", "scipy (>=1.8)", "matplotlib (>=3.4)", "pandas (>=1.3)"]
-developer = ["pre-commit (>=2.19)", "mypy (>=0.960)"]
+developer = ["pre-commit (>=2.20)", "mypy (>=0.961)"]
 doc = ["sphinx (>=5)", "pydata-sphinx-theme (>=0.9)", "sphinx-gallery (>=0.10)", "numpydoc (>=1.4)", "pillow (>=9.1)", "nb2plots (>=0.6)", "texext (>=0.6.6)"]
 extra = ["lxml (>=4.6)", "pygraphviz (>=1.9)", "pydot (>=1.4.2)", "sympy (>=1.10)"]
 test = ["pytest (>=7.1)", "pytest-cov (>=3.0)", "codecov (>=2.1)"]
 
 [[package]]
 name = "numpy"
-version = "1.23.1"
+version = "1.23.2"
 description = "NumPy is the fundamental package for array computing with Python."
 category = "main"
 optional = false
@@ -90,6 +90,22 @@ python-versions = ">=3.6"
 pyparsing = ">=2.0.2,<3.0.5 || >3.0.5"
 
 [[package]]
+name = "pandas"
+version = "1.4.3"
+description = "Powerful data structures for data analysis, time series, and statistics"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+
+[package.dependencies]
+numpy = {version = ">=1.21.0", markers = "python_version >= \"3.10\""}
+python-dateutil = ">=2.8.1"
+pytz = ">=2020.1"
+
+[package.extras]
+test = ["hypothesis (>=5.5.3)", "pytest (>=6.0)", "pytest-xdist (>=1.31)"]
+
+[[package]]
 name = "pillow"
 version = "9.2.0"
 description = "Python Imaging Library (Fork)"
@@ -100,20 +116,6 @@ python-versions = ">=3.7"
 [package.extras]
 docs = ["furo", "olefile", "sphinx (>=2.4)", "sphinx-copybutton", "sphinx-issues (>=3.0.1)", "sphinx-removed-in", "sphinxext-opengraph"]
 tests = ["check-manifest", "coverage", "defusedxml", "markdown2", "olefile", "packaging", "pyroma", "pytest", "pytest-cov", "pytest-timeout"]
-
-[[package]]
-name = "prettytable"
-version = "3.3.0"
-description = "A simple Python library for easily displaying tabular data in a visually appealing ASCII table format"
-category = "main"
-optional = false
-python-versions = ">=3.7"
-
-[package.dependencies]
-wcwidth = "*"
-
-[package.extras]
-tests = ["pytest", "pytest-cov", "pytest-lazy-fixture"]
 
 [[package]]
 name = "pyparsing"
@@ -138,17 +140,49 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 six = ">=1.5"
 
 [[package]]
-name = "setuptools-scm"
-version = "7.0.5"
-description = "the blessed package to manage your versions by scm tags"
+name = "pytz"
+version = "2022.2.1"
+description = "World timezone definitions, modern and historical"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "scipy"
+version = "1.6.1"
+description = "SciPy: Scientific Library for Python"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
+numpy = ">=1.16.5"
+
+[[package]]
+name = "seaborn"
+version = "0.11.2"
+description = "seaborn: statistical data visualization"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+matplotlib = ">=2.2"
+numpy = ">=1.15"
+pandas = ">=0.23"
+scipy = ">=1.0"
+
+[[package]]
+name = "setuptools-scm"
+version = "6.4.2"
+description = "the blessed package to manage your versions by scm tags"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
 packaging = ">=20.0"
 tomli = ">=1.0.0"
-typing-extensions = "*"
 
 [package.extras]
 test = ["pytest (>=6.2)", "virtualenv (>20)"]
@@ -163,6 +197,14 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
+name = "termcolor"
+version = "1.1.0"
+description = "ANSII Color formatting for output in terminal."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
@@ -170,26 +212,10 @@ category = "main"
 optional = false
 python-versions = ">=3.7"
 
-[[package]]
-name = "typing-extensions"
-version = "4.3.0"
-description = "Backported and Experimental Type Hints for Python 3.7+"
-category = "main"
-optional = false
-python-versions = ">=3.7"
-
-[[package]]
-name = "wcwidth"
-version = "0.2.5"
-description = "Measures the displayed width of unicode strings in a terminal"
-category = "main"
-optional = false
-python-versions = "*"
-
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "8c90fccb504db1f7dd73fcb0ca54187a3e653f5d0d1c5a4d32f71bc53fe543a5"
+content-hash = "4052e392c2b22e9f459d2015f314138b497b5ad1c50b23c368c2f22306987c52"
 
 [metadata.files]
 cycler = []
@@ -199,12 +225,14 @@ matplotlib = []
 networkx = []
 numpy = []
 packaging = []
+pandas = []
 pillow = []
-prettytable = []
 pyparsing = []
 python-dateutil = []
+pytz = []
+scipy = []
+seaborn = []
 setuptools-scm = []
 six = []
+termcolor = []
 tomli = []
-typing-extensions = []
-wcwidth = []
