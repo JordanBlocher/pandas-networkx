@@ -5,7 +5,7 @@ import os
 OPTION = False
 NOISE = True
 
-ROUNDS = 200
+ROUNDS = 2
 ROW_DELAY=.0001
 
 BUYER_FACTOR = random.uniform(.5, .8)

@@ -16,8 +16,10 @@ from subprocess import Popen, PIPE
 import curses
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
 import plotly.express as px
-
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 
 from scipy.cluster.hierarchy import dendrogram, linkage
 
@@ -32,6 +34,9 @@ class MarketSim(Auctioneer):
     #plot_tree = NXPlot([(121, None), (122, None)])
     plot_tree = NXPlot([(111, None)])
     df = pd.DataFrame()
+    pf = pd.DataFrame()
+    start_time = 0
+    fig = make_subplots(rows=1, cols=2)
 
     def run_progressive_auction(self):
         
@@ -42,15 +47,15 @@ class MarketSim(Auctioneer):
         while auction_round < ROUNDS:
             self.auctions_history.append([])
             self.market_price.append([])
-            self.bid_history = []
             pf = self.do_round(auction_round)
-            self.plot_price(pf, auction_round)
-            self.df.append(nx.to_pandas_edgelist(self.G))
+            nx.to_pandas_edgelist(self.G)
             #self.plotnx(auction_round)
             #self.print_round(auction_round)
             #print("FULLPRICE",self.market_price)
             auction_round += 1
-            time.sleep(1)
+        self.price_plot(auction_round)
+        self.fig.show()
+
 
     def print_round(self, round_number):
         print("Round", auction_round)
@@ -75,6 +80,66 @@ class MarketSim(Auctioneer):
         self.plot_tree.nxgraph(self.T, None, 111)
         self.plot_tree.draw()
         #self.T.clear()
+
+    def price_plot(self, auction_round=0):
+        price = px.bar(self.pf, x='id',
+            y='t', animation_frame='time_ms',
+            hover_name='t+1', animation_group='id', log_x=False,
+            range_x=[1,MSELLERS+NBUYERS], 
+            range_y=[1,1.5*MAX_PRICE])
+        price_traces = []
+        for trace in range(len(price['data'])):
+            price_traces.append(price['data'][trace])
+        frames = []
+        for t in range(len(price['frames'])):
+            frames.append( dict( name = (price['frames'][t]['name']),
+            data = [price['frames'][t]['data'][trace] for trace \
+            in range(len(price['frames'][t]['data']))],
+            traces=[0]))
+        updatemenus = []
+        sliders = []
+        print(price['layout'])
+        for trace in price['layout']['sliders']:
+            sliders.append(trace)
+        for trace in price['layout']['updatemenus']:
+            updatemenus.append(trace)
+        print("MENU", updatemenus)
+        for traces in price_traces:
+            print(traces)
+            self.fig.append_trace(traces, row=1, col=1)
+
+        self.fig.update(frames=frames)
+        self.fig.update_layout(updatemenus=updatemenus, sliders=sliders)
+
+    def update_price_plot(self, pf, auction_round=0):
+        price = px.bar(self.pf, x='id',
+            y='t', animation_frame='time_ms',
+            hover_name='t+1', animation_group='id', log_x=False,
+            range_x=[1,MSELLERS+NBUYERS], 
+            range_y=[1,1.5*MAX_PRICE])
+        frames = []
+        for t in range(len(price['frames'])):
+            frames.append( dict( name = (price['frames'][t]['name']),
+            data = [price['frames'][t]['data'][trace] for trace \
+            in range(len(price['frames'][t]['data']))],
+            traces=[0]))
+        self.fig.update(frames=frames)
+        '''
+        frames = [ dict ( name=k,
+            data = [go.Bar(x=pf['id'], y=pf['t'])], 
+            traces=[0]) for k in pf['time_ms']]
+        self.fig.update(frames=frames)
+        pos = nx.spring_layout(self.G, dim=3, seed=779)
+        # Extract node and edge positions from the layout
+        node_xyz = np.array([pos[v] for v in sorted(self.G)])
+        edge_xyz = np.array([(pos[u], pos[v]) for u, v in self.G.edges()])
+        # Plot the nodes - alpha is scaled by "depth" automatically
+        self.fig.add_scatter(*node_xyz.T, row=1, col=2)
+        # Plot the edges
+        for vizedge in edge_xyz:
+            fig.add_trace(*vizedge.T, color="tab:gray", row=1, col=2)
+        '''
+
 
     def correlate(self, auction_round):
         adj_matrix = nx.to_pandas_adjacency(self.G)

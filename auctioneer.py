@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from termcolor import colored
 import seaborn as sns
 import pandas as pd
+import plotly.express as px
 
 import networkx as nx
 from auction import Auction
@@ -24,26 +25,25 @@ class Auctioneer(Auction):
     bid_history=[]
     increase_bidding_factor = np.random.uniform(1.2, 1.5, size=MAX_NETWORK_SIZE)
     decrease_bidding_factor = np.random.uniform(0.3, 0.7, size=MAX_NETWORK_SIZE)
-    start_time = 0
 
-    def save_frame(self, seller, winner):
+    def save_frame(self, seller, winner, auction_round):
         nodes = sorted(self.node_list(), key=lambda x: x.price)
         
-        self.pf.append(pd.DataFrame({'t-1' : \
-            [node.price for node in nodes], 't' : 
-            [node.price for node in nodes], 't+1' : 
-            [node.price for node in nodes], 
-            'winner': winner, 'seller': seller}, 
-            'time_ms': time.time_ns() - start_time]))
+        frame = pd.DataFrame({'t-1' : \
+        [node.price for node in nodes], 't' : \
+        [node.price for node in nodes], 't+1' : \
+        [node.price for node in nodes], \
+        'id' : [node.id for node in nodes], \
+        'winner': winner, 'seller': seller, \
+        'round' : auction_round, \
+        'time_ms': time.thread_time() - self.start_time})
+        self.pf = self.pf.append(frame)
 
-
-    def run_local_auction(self, seller):
-        self.calculate_market_price(seller)
-
-        self.save_frame(seller, 0)
+    def run_local_auction(self, seller, auction_round):
+        self.calculate_market_price(seller, auction_round)
 
         for buyer in self.buyer_list(seller):
-            self.calculate_consistent_bid(buyer)
+            self.calculate_consistent_bid(buyer, auction_round)
             self.bid_history.append(buyer)
      
         winner = self.second_price_winner(seller)
@@ -65,20 +65,19 @@ class Auctioneer(Auction):
         '''
         return winner
 
-
     def do_round(self, auction_round):
         self.bid_history = []
         self.winners = []
-        self.start_time = time.time_ns()
 
         for seller in self.seller_list():
             if len(self.buyer_list(seller)) < 1:
                 print("SKIPPING AUCTION", seller)
                 continue
-            self.save_frame(seller, 0)
+            self.save_frame(seller, 0, auction_round)
  
-            winner = self.run_local_auction(seller)
-            self.save_frame(seller, winner)
+            winner = self.run_local_auction(seller, auction_round)
+
+            self.save_frame(seller, winner, auction_round)
             auction = self.store_auction_state(
                     winner=winner,
                     seller=seller,
@@ -89,11 +88,12 @@ class Auctioneer(Auction):
                 
             self.update_auction(seller, winner)
 
-        end_time = time.time_ns()
+        end_time = time.thread_time()
+
         return self.pf
 
 
-    def calculate_consistent_bid(self, buyer):
+    def calculate_consistent_bid(self, buyer, auction_round):
         if len(self.seller_list(buyer)) < 2:
             seller = random.choice(self.seller_list())
             self.G.add_edge(buyer, seller, weight=buyer.price)
@@ -116,11 +116,15 @@ class Auctioneer(Auction):
             neighbors = self.buyer_list(buyer)
             if len(neighbors) > 1:
                 if buyer.price <  min([node.price for node in neighbors]):
-                    buyer.price = RD(buyer.price*self.increase_bidding_factor[buyer.id])
+                    buyer.price = RD(buyer.price*\
+                    self.increase_bidding_factor[buyer.id])
                 elif buyer.price >  max([node.price for node in neighbors]):
-                    buyer.price = RD(buyer.price*self.decrease_bidding_factor[buyer.id])
+                    buyer.price = RD(buyer.price*\
+                    self.decrease_bidding_factor[buyer.id])
         for seller in node_list:
             self.G.add_edge(buyer, seller, weight=buyer.price)
+        
+        self.save_frame(seller, 0, auction_round)
  
     def second_price_winner(self, seller):
         buyer_list = self.buyer_list(seller)
@@ -133,10 +137,9 @@ class Auctioneer(Auction):
         self.G.nodes(data=True)[winner]['color'] = 'red'
         winner.color = 'red'
         self.G.add_edge(seller, winner, weight=winner.price)
-        #self.T.add_edge(seller, winner, weight=winner.price)
         return winner
 
-    def calculate_market_price(self, seller):
+    def calculate_market_price(self, seller, auction_round):
         node_list = self.buyer_list(seller)
         sorted_nodes = sorted(node_list, key=lambda x: x.price, reverse=True)
         seller.price = sorted_nodes[0].price
@@ -152,14 +155,20 @@ class Auctioneer(Auction):
                     break
             seller.price = min(prices)
 
+        self.save_frame(seller, 0, auction_round)
         #for buyer in node_list:
          #   self.G.add_edge(seller, buyer, weight=seller.price)
 
     def start_auctioneer(self):
+        self.start_time = time.thread_time()
         self.price_intervals(0)
         nodes = sorted(self.node_list(), key=lambda x: x.price)
-        self.pf = pd.DataFrame({'t-1' : [node.price for node in nodes], 't' : [node.price for node in nodes], 't+1' :
-[node.price for node in nodes], 'winner': 0, 'seller': 0}, 'time_ms': 0])
+        self.pf = pd.DataFrame({'t-1' : [node.price for node in nodes],\
+                                  't' : [node.price for node in nodes],\
+                                't+1' : [node.price for node in nodes],\
+                                'id' : [node.id for node in nodes], \
+                                'round' : 0, \
+                             'winner': 0, 'seller': 0, 'time_ms': 0})
         print(self.pf)
         #print(nx.current_flow_closeness_centrality(self.G, weight='weight'))
 
