@@ -26,13 +26,13 @@ class Auction:
                 #self.G.add_edge(seller, buyer, weight = seller.price)
         #print("INITIAL EDGES", self.G.edges(data=True), '\n\n')
         #print("INITIAL NODES", self.G.nodes(data=True), '\n\n')
-        d = nx.to_dict_of_lists(self.G)
-        for key, value in d.items():
-            print(key, value)
+        #d = nx.to_dict_of_lists(self.G)
+        #for key, value in d.items():
+        #    print(key, value)
 
     def node_view(self, node_filter=None, other_node=None):
         if other_node:
-            g = nx.ego_graph(nx.to_undirected(self.G), other_node, 1, False)
+            g = nx.ego_graph(self.G, other_node, 1, False)
             view = nx.subgraph_view(g,filter_node=node_filter)
             return view
         elif node_filter:
@@ -74,6 +74,15 @@ class Auction:
         self.nnodes += 1
 
     def update_auction(self, seller, winner):
+        for buyer in self.buyer_list(seller):
+            if len(self.seller_list(buyer)) < 2:
+                choice = random.choice(self.seller_list())
+                self.G.add_edge(buyer, choice, weight=buyer.price)
+        if seller.demand <= 0:
+            self.G.remove_node(seller)
+            self.nnodes -= 1
+            Node.ids.append(seller.id)
+            self.add_node(Seller())
         self.G.nodes(data=True)[winner]['color'] = 'green'
         winner.color = 'green'
         if winner.demand >= 0:
@@ -81,11 +90,7 @@ class Auction:
             self.nnodes -= 1
             Node.ids.append(winner.id)
             self.add_node(Buyer())
-        if seller.demand <= 0:
-            self.G.remove_node(seller)
-            self.nnodes -= 1
-            Node.ids.append(seller.id)
-            self.add_node(Seller())
+
     
     def print_auction(self):
         for seller in self.seller_list():

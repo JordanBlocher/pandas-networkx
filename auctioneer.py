@@ -23,83 +23,84 @@ import multiprocessing as mp
 class Auctioneer(Auction):
 
     bid_history=[]
+    frame = None
     increase_bidding_factor = np.random.uniform(1.2, 1.5, size=MAX_NETWORK_SIZE)
     decrease_bidding_factor = np.random.uniform(0.3, 0.7, size=MAX_NETWORK_SIZE)
 
-    def save_frame(self, seller, winner, auction_round):
-        nodes = sorted(self.node_list(), key=lambda x: x.price)
+    def save_frame(self):
+        nodes = sorted(self.node_list(), key=lambda x: x.id)
+        frame = pd.DataFrame({'price' : [node.price for node in nodes], \
+                              'id' : [node.id for node in nodes],
+                              'time_ms': self.start_time,
+                              'color' : [node.color for node in nodes]})
+        self.start_time += 1 
+        if self.frame.empty:
+            self.frame = frame
+        else:
+            self.frame = self.frame.append(frame)
+
+    def run_local_auction(self, seller):
+        node_list = self.buyer_list(seller) 
+        seller.price = self.calculate_market_price(seller, node_list)
         
-        frame = pd.DataFrame({'t-1' : \
-        [node.price for node in nodes], 't' : \
-        [node.price for node in nodes], 't+1' : \
-        [node.price for node in nodes], \
-        'id' : [node.id for node in nodes], \
-        'winner': winner, 'seller': seller, \
-        'round' : auction_round, \
-        'time_ms': time.thread_time() - self.start_time})
-        self.pf = self.pf.append(frame)
-
-    def run_local_auction(self, seller, auction_round):
-        self.calculate_market_price(seller, auction_round)
-
-        for buyer in self.buyer_list(seller):
-            self.calculate_consistent_bid(buyer, auction_round)
-            self.bid_history.append(buyer)
-     
+        pool = mp.Pool(mp.cpu_count())
+        params = [(buyer, self.seller_list(buyer), \
+                          self.buyer_list(buyer))\
+                          for buyer in node_list]
+        self.bid_history = pool.starmap(self.calculate_consistent_bid, params)
+        pool.close()
+        
         winner = self.second_price_winner(seller)
         #profit = winner.price - seller.price 
 
-        for buyer in self.buyer_list(seller):
-            if buyer != winner:
-                self.G.add_edge(winner, buyer, weight=winner.price)
+        node_list.remove(winner)
+        [self.G.add_edge(winner, buyer, weight=winner.price) for buyer in node_list]
         seller.demand -= 1
         winner.demand += 1
-        '''
-        g = nx.ego_graph(self.G, winner, 1, True)
-        print("g=", g.nodes)
-        for node in self.seller_list():
-            if node != seller:
-                g=nx.ego_graph(self.G, node, 1, True)
-                if winner in g.nodes:
-                    print(node, "--->", winner, nx.shortest_path(self.G, node, winner))
-        '''
+
         return winner
+               
 
     def do_round(self, auction_round):
+        self.frame = pd.DataFrame()
         self.bid_history = []
         self.winners = []
+        pool = mp.Pool(mp.cpu_count())
 
         for seller in self.seller_list():
+            print("t=", time.thread_time())
             if len(self.buyer_list(seller)) < 1:
                 print("SKIPPING AUCTION", seller)
                 continue
-            self.save_frame(seller, 0, auction_round)
- 
-            winner = self.run_local_auction(seller, auction_round)
-
-            self.save_frame(seller, winner, auction_round)
+            winner = self.run_local_auction(seller)
+            
+            seller_pool = mp.Pool(mp.cpu_count())
+            params = [(seller, self.buyer_list(seller)) for seller in self.seller_list()]
+            market_prices = seller_pool.starmap(self.calculate_market_price, params)
+            seller_pool.close()
             auction = self.store_auction_state(
                     winner=winner,
                     seller=seller,
                     auction_round=auction_round) # Watch this
-            #auction.print_auction_state()
-            self.market_price[auction_round].append(
-                    seller.price)
-                
+            self.market_price[auction_round].append(seller.price)
             self.update_auction(seller, winner)
-
         end_time = time.thread_time()
 
-        return self.pf
+        return self.frame
 
+    def start_auctioneer(self):
+        #self.price_intervals(0)
+        #print(nx.current_flow_closeness_centrality(self.G, weight='weight'))
+        self.frame = pd.DataFrame()
+        self.save_frame() 
+        return self.frame
 
-    def calculate_consistent_bid(self, buyer, auction_round):
-        if len(self.seller_list(buyer)) < 2:
-            seller = random.choice(self.seller_list())
-            self.G.add_edge(buyer, seller, weight=buyer.price)
-        node_list = self.seller_list(buyer) 
+    def dt(self, price):
+        td = pd.to_timedelta(time.time())
+        self.ps = self.ps.append(pd.Series(data=[price], index=[td.delta]))
+
+    def calculate_consistent_bid(self, buyer, node_list, neighbors):
         sorted_nodes = sorted(node_list, key=lambda x: x.price)
-            
         buyer.price = sorted_nodes[0].price
         if OPTION:
             prices = []
@@ -111,9 +112,7 @@ class Auctioneer(Auction):
                 if opt_out_demand >= 0:
                     break
             buyer.price = max(prices)
-        
         if NOISE:
-            neighbors = self.buyer_list(buyer)
             if len(neighbors) > 1:
                 if buyer.price <  min([node.price for node in neighbors]):
                     buyer.price = RD(buyer.price*\
@@ -121,10 +120,10 @@ class Auctioneer(Auction):
                 elif buyer.price >  max([node.price for node in neighbors]):
                     buyer.price = RD(buyer.price*\
                     self.decrease_bidding_factor[buyer.id])
-        for seller in node_list:
-            self.G.add_edge(buyer, seller, weight=buyer.price)
-        
-        self.save_frame(seller, 0, auction_round)
+        [self.G.add_edge(buyer, seller, weight=buyer.price) for seller in node_list]
+        self.save_frame()
+        self.dt(buyer.price)
+        return buyer
  
     def second_price_winner(self, seller):
         buyer_list = self.buyer_list(seller)
@@ -136,14 +135,13 @@ class Auctioneer(Auction):
             winner.price = sorted_buyers[0].price
         self.G.nodes(data=True)[winner]['color'] = 'red'
         winner.color = 'red'
-        self.G.add_edge(seller, winner, weight=winner.price)
+        self.G.add_edge(winner, seller, weight=winner.price)
+        self.dt(winner.price)
         return winner
 
-    def calculate_market_price(self, seller, auction_round):
-        node_list = self.buyer_list(seller)
+    def calculate_market_price(self, seller, node_list):
         sorted_nodes = sorted(node_list, key=lambda x: x.price, reverse=True)
         seller.price = sorted_nodes[0].price
-
         if OPTION:
             prices = []
             opt_out_demand = seller.demand
@@ -154,23 +152,12 @@ class Auctioneer(Auction):
                 if opt_out_demand <= 0:
                     break
             seller.price = min(prices)
-
-        self.save_frame(seller, 0, auction_round)
+        self.save_frame()
+        self.dt(seller.price)
         #for buyer in node_list:
          #   self.G.add_edge(seller, buyer, weight=seller.price)
+        return seller.price
 
-    def start_auctioneer(self):
-        self.start_time = time.thread_time()
-        self.price_intervals(0)
-        nodes = sorted(self.node_list(), key=lambda x: x.price)
-        self.pf = pd.DataFrame({'t-1' : [node.price for node in nodes],\
-                                  't' : [node.price for node in nodes],\
-                                't+1' : [node.price for node in nodes],\
-                                'id' : [node.id for node in nodes], \
-                                'round' : 0, \
-                             'winner': 0, 'seller': 0, 'time_ms': 0})
-        print(self.pf)
-        #print(nx.current_flow_closeness_centrality(self.G, weight='weight'))
 
     def price_intervals(self, auction_round):
         nodes = sorted(self.node_list(), key=lambda x: x.price)

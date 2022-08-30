@@ -5,8 +5,11 @@ import os
 OPTION = False
 NOISE = True
 
-ROUNDS = 2
-ROW_DELAY=.0001
+ROUNDS = 5
+NBUYERS = 5
+MSELLERS = 3
+MAX_NETWORK_SIZE = 12
+
 
 BUYER_FACTOR = random.uniform(.5, .8)
 SELLER_FACTOR = random.uniform(1.2, 1.5)
@@ -16,14 +19,12 @@ INCREASE_MIN = .9
 DECREASE_MAX = 0.9
 DECREASE_MIN = 0.8
 
-NBUYERS = 15
-MSELLERS = 7
-MAX_NETWORK_SIZE = 24
 
 LOW = .2 #Note: try negative values
 HIGH = 1.2
 
 MINGROUPSIZE = 2
+MAXGROUPSIZE = 3
 
 INCREASE_MAX = 1
 INCREASE_MIN = .1
@@ -46,8 +47,7 @@ def SHUFFLE(x):
     random.shuffle(y)
     return [x[z] for z in y]
 
-MINGROUPSIZE = 2
-MAXGROUPSIZE = 3
+
 # randomly sample from a list 
 def RANDOM(x):
     y = [n for n in range(len(x))]

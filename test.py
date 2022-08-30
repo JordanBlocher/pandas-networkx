@@ -44,27 +44,27 @@ frames = [dict(
 
 # Play button
 updatemenus = [dict(type='buttons',
-                    buttons=[dict(label='Play',
-                                  method='animate',
-                                  args=[[f'{k}' for k in range(number_frames)],
-                                        dict(frame=dict(duration=500, redraw=True),
-                                             transition=dict(duration=0),
-                                             easing='linear',
-                                             fromcurrent=True,
-                                             mode='immediate'
-                                             )]),
-                             dict(label='Pause',
-                                  method='animate',
-                                  args=[[None],
-                                        dict(frame=dict(duration=0, redraw=False),
-                                             transition=dict(duration=0),
-                                             mode='immediate'
-                                             )])
-                             ],
-                    direction='left',
-                    pad=dict(r=10, t=85),
-                    showactive=True, x=0.1, y=0, xanchor='right', yanchor='top')
-               ]
+        buttons=[dict(label='Play',
+          method='animate',
+          args=[[f'{k}' for k in range(number_frames)],
+                dict(frame=dict(duration=500, redraw=True),
+                     transition=dict(duration=0),
+                     easing='linear',
+                     fromcurrent=True,
+                     mode='immediate'
+                     )]),
+          dict(label='Pause',
+          method='animate',
+          args=[[None],
+                dict(frame=dict(duration=0, redraw=False),
+                     transition=dict(duration=0),
+                     mode='immediate'
+                     )])
+     ],
+        direction='left',
+        pad=dict(r=10, t=85),
+        showactive=True, x=0.1, y=0, xanchor='right', yanchor='top')
+   ]
 
 
 # Slider

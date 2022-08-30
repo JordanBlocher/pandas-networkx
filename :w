@@ -18,30 +18,20 @@ from termcolor import colored
 import networkx as nx
 import numpy as np
 
-import dash
-from dash import dcc
-from dash import html
-
 sns.set()
 
 
 class Animate:
 
-    fig = None
-    app = None
+    fig = sp.make_subplots(rows=1, cols=1)
     num_frames = 0
+    frames = []
     max_frames = 0
 
     def __init__(self):
-        self.fig = sp.make_subplots(rows=1, cols=1)
-        self.max_frames = 2*(NBUYERS+MSELLERS)
+        self.max_frames = ROUNDS*3*(NBUYERS+MSELLERS)
+        self.fig.update(frames=self.frames)
         print("MAXFRAMES", self.max_frames)
-
-        self.app = dash.Dash()
-        self.app.layout = html.Div([
-            dcc.Graph(figure=self.fig)
-        ])
-
         #self.price_plot(pf)
 
     def price_plot(self, pf):
@@ -49,7 +39,9 @@ class Animate:
         self.fig.add_trace(go.Bar(x=pf['id'], y=pf['price'],
                             hovertext=pf['price'],
                             hovertemplate='<b>%{hovertext}</b><br>price=%{y}<extra></extra>',
-                            ids=pf['id'], xaxis='x', yaxis='y'), row=1, col=1)
+
+                            ids=pf['id']
+                            ), row=1, col=1)
 
         updatemenus = [dict(type='buttons',
             buttons=[dict(label='Play',
@@ -75,7 +67,7 @@ class Animate:
             ]
 
         xaxis = {'anchor': 'y', 'domain': [0.0, 1.0], 
-                 'range': [1, MAX_NETWORK_SIZE], 'title': {'text': 'id'}}
+                 'range': [1, 8], 'title': {'text': 'id'}}
         yaxis = {'anchor': 'x', 'domain': [0.0, 1.0], 
                  'range': [1, 22.5], 'title': {'text': 'price'}}
 
@@ -83,11 +75,7 @@ class Animate:
                    'currentvalue': {'font': {'size': 16}, 
                    'prefix': 'time_ms=', 'visible': True, 'xanchor': 'right'},
                    'len': 0.9, 'pad': {'b': 10, 't': 60},
-            'steps': [{'args': [[k], 
-                   {'frame': {'duration': 0, 'redraw': True}, 'mode':
-                    'immediate', 'fromcurrent': True, 'transition':
-                   {'duration': 0, 'easing': 'linear'}}],
-            'label': k, 'method': 'animate'} for k in range(self.max_frames)],
+            'steps': [],
              'transition': {'duration': 0, 'easing': 'linear'},
                 'x': 0.1,
                 'xanchor': 'left',
@@ -95,27 +83,30 @@ class Animate:
                 'yanchor': 'top'
             }
     
+        for k in range(self.max_frames):
+            sliders['steps'].append({'args': [[k], 
+                   {'frame': {'duration': 0, 'redraw': True}, 'mode':
+                    'immediate', 'fromcurrent': True, 'transition':
+                   {'duration': 0, 'easing': 'linear'}}],
+                    'label': k, 'method': 'animate'})
 
         self.fig.update_xaxes(xaxis)
         self.fig.update_yaxes(yaxis)
         self.fig.update_layout(updatemenus=updatemenus, sliders=[sliders])
-        self.frames = self.fig['frames']
 
+        self.price_plot_update(pf)
 
     def price_plot_update(self, pf):
         g = pf.groupby('time_ms')
         keys = g.groups.keys()
         self.num_frames += len(keys) 
-        frames = tuple([dict( name=k,
-            data = [go.Bar(x=g.get_group(k)['id'], 
-            y=g.get_group(k)['price'], hovertext=g.get_group(k)['price'],
-            hovertemplate='<b>%{hovertext}</b><br>price=%{y}<extra></extra>',
-            ids=g.get_group(k)['id'], xaxis='x', yaxis='y')],
-                    traces=[0]) for k in keys])
-        print("NEW FRAMES", frames)
-        self.fig['frames'] += frames
-        #self.fig.update(frames=self.frames)
-        #self.fig.update(frames=self.frames)
+        for k in keys:
+            frame = g.get_group(k)
+            self.frames.append(dict( name=k,
+                    data = [go.Bar(x=frame['id'], y=frame['price'])],
+                    traces=[0]))
+        self.fig.update()
+        print(self.fig['frames'])#.append(frames)
 
     
     def price_plot_old(self, pf):
@@ -151,11 +142,11 @@ class Animate:
         xaxis = {'anchor': 'y', 'domain': [0.0, 1.0], 'range': [1, MAX_NETWORK_SIZE], 'title': {'text': 'id'}}
         yaxis = {'anchor': 'x', 'domain': [0.0, 1.0], 'range': [1, 22.5], 'title': {'text': 'price'}}
 
-        #print(sliders)
+        self.fig.update(frames=frames)
+        print(self.fig['frames'])#.append(frames)
         self.fig.update_xaxes(xaxis)
         self.fig.update_yaxes(yaxis)
         self.fig.update_layout(updatemenus=updatemenus, sliders=sliders)
-        self.fig.update(frames=frames)
 
 
 
@@ -176,9 +167,7 @@ class Animate:
         '''
 
     def show(self):
-        print("FRAMES", self.fig['frames'])
-        self.app.run_server(debug=True, use_reloader=True) 
-        #self.fig.show()
+        self.fig.show()
 
 
 
