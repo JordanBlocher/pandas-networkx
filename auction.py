@@ -33,8 +33,8 @@ class Auction:
     def node_view(self, node_filter=None, other_node=None):
         if other_node:
             g = nx.ego_graph(self.G, other_node, 1, False)
-            view = nx.subgraph_view(g,filter_node=node_filter)
-            return view
+            if node_filter:
+                g = nx.subgraph_view(g,filter_node=node_filter)
         elif node_filter:
             g = nx.subgraph_view(self.G,filter_node=node_filter)
         else:
@@ -90,7 +90,6 @@ class Auction:
             self.nnodes -= 1
             Node.ids.append(winner.id)
             self.add_node(Buyer())
-
     
     def print_auction(self):
         for seller in self.seller_list():

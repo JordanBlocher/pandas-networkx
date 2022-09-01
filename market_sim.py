@@ -12,87 +12,68 @@ from nxplot import NXPlot, Animate
 import os
 import sys
 import time
-from subprocess import Popen, PIPE
-import curses
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-import plotly.express as px
-import plotly.subplots as sp
-import plotly.graph_objects as go
 
-from scipy.cluster.hierarchy import dendrogram, linkage
+import dash
+from dash import dcc
+from dash import html
 
-class MarketSim(Auctioneer): 
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
-    auctions_history=[] # time series
-    market_price=[]
-    pf = pd.DataFrame()
-    ps = pd.Series()
-    start_time = 0
 
-    def run_progressive_auction(self):
-        
-        animation = Animate()
-        #animation2 = Animate()
-        self.pf = self.start_auctioneer()
-        print("START", self.pf)
-        animation.price_plot(self.pf)
-        auction_round = 0
-        self.print_auction()
-        animation.show()
-        while auction_round < ROUNDS:
-            self.auctions_history.append([])
-            self.market_price.append([])
-            pf = self.do_round(auction_round)
-            animation.price_plot_update(pf)
-            self.pf = self.pf.append(pf)
-            #self.plotnx(auction_round)
-            #self.print_round(auction_round)
-            #print("FULLPRICE",self.market_price)
-            auction_round += 1
-            print("TIME ",  self.start_time, '\n\n\n')
-        print("OLD PLOT\n\n\n")
-        #animation2.price_plot_old(self.pf)
-        #animation.show()
 
-    def print_round(self, round_number):
-        print("Round", auction_round)
-        #print(nx.to_dict_of_lists(self.G))
-        #print(self.G.nodes(data=True))
-        #print(self.G.edges(data=True))
-        #print(nx.to_pandas_adjacency(self.G))
+def get_new_data():
+    while True:
+        try:
+            start = time.time()
+            pf = do_round()
+            t = time.time()-start
+            time.sleep(1)
+        except KeyboardInterrupt as err:
+            exit()
 
-        n = 0
-        for auction_state in self.auctions_history[round_number]:
-            auction_state.print_auction_state()
-            n += 1
+def do_round():
+    global fig
+    auction_round = 0
+    pf = auctioneer.run_auctions(auction_round)
+    fig = animation.price_plot_update(pf)
+    print("NFRAMES",len(animation.fig['frames']))
+    #print_round(auction_round)
+    auction_round += 1
 
-    def write_matrix(self, auction_round):
-        if NCURSES:
-            with open(PIPE_PATH, 'w') as p:
-                p.write(np.array_str(self.mat, precision=2, suppress_small=True))
-                p.write('\n')
-            p.close()
-        f = open("mat" + str(auction_round) + ".txt", "w")
-        f.write('NAME\t')
-        m = nx.to_pandas_adjacency(self.G)
-        for i in range(m.shape[0]):    
-            f.write('%s\t' % m.columns[i])
-        f.write('\n')
-        for r in range(m.shape[0]):    
-            f.write('%s\t' % m.columns[r])
-            for c in range(m.shape[1]):    
-                f.write('%s\t' % m.values[r][c])
-            f.write('\n')
-        f.write('\n')
-        f.close()
+def print_round(round_number):
+    print("Round", round_number)
+    #print(nx.to_dict_of_lists(self.G))
+    #print(self.G.nodes(data=True))  
+    #print(self.G.edges(data=True))
+    #print(nx.to_pandas_adjacency(self.G))
+    n = 0
+    for auction_state in self.auctions_history[round_number]:
+        auction_state.print_auction_state()
+        n += 1
+
+def make_layout():
+    global fig
+    return html.Div(
+        dcc.Graph(id='price-graph', figure=fig, animate=True),
+        )
+
+
+app = dash.Dash(__name__)
+
+auctioneer = Auctioneer()
+pf = auctioneer.save_frame()
+animation = Animate()
+fig = animation.price_plot(pf)
+
+app.layout = make_layout
 
 # Execute with parameters
 if __name__ == '__main__':
-    program = MarketSim()
-    program.run_progressive_auction()
 
-        
-
+    executor = ThreadPoolExecutor(max_workers=1)
+    executor.submit(get_new_data)
+    app.run_server(debug=True, use_reloader=True) 
 

@@ -7,26 +7,13 @@ import json
  
 class AuctionState:
     
-    def __init__(self, G, bid_history, seller, winner, name=None):
-        g = nx.subgraph(G, bid_history + [seller])
-        self.auction_state = g.__class__()
-        self.auction_state.add_nodes_from(g.nodes(data=True))
-        self.auction_state.add_edges_from(g.edges(data=True))
-        
-        nx.freeze(self.auction_state)
-        mapping = dict(zip(G, range(1, len(G.nodes)+1)))
-        self.auction_state_string = '\n'.join(nx.generate_gml(\
-        G = nx.relabel_nodes(self.auction_state, mapping)))
-        if name:
-            with open(name, "a") as f:
-                print(self.auction_state_string, file=f)    
+    def __init__(self, G, bid_history, seller, winner):
+        primary_inflencing_set =  nx.ego_graph(G, winner, 1, False)
+        self.nodes = bid_history + [seller]
+        self.winner = winner
 
-    def print_auction_state(self, name=None):
-        if name:
-            self.auction_state = nx.read_gml(name)
-        else:
-            test = nx.parse_gml(self.auction_state_string)
-        for node in self.auction_state.nodes:
+    def print_auction_state(self):
+        for node in self.nodes:
             cprintnode(node, '\t')
         print(' ')
 

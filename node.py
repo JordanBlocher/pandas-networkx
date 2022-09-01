@@ -21,7 +21,7 @@ class Node:
         self.private_value = RD(np.random.uniform(1, MAX_PRICE))
         self.color = color
         self.type = ntype
-        self.price = RD(self.private_value*factor)
+        self.price = RD(self.private_value*random.uniform(BUYER_FACTOR, SELLER_FACTOR))
 
     def __str__(self):
         return str(self.id)
