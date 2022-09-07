@@ -24,11 +24,9 @@ class Auction:
                             color=node.color, 
                             demand=node.demand
                             )
-        for node in self.node_list(self.filter('buyer')):
+        for node in self.node_list(self.buyer_filter):
             rand = rsample(  
-                            self.node_list(
-                                        self.filter('seller')
-                                        ),
+                            self.node_list(self.seller_filter),
                             params
                             )
             for other_node in rand:
@@ -89,12 +87,16 @@ class Auction:
                             neighbor, 
                             weight=node.price
                             )
-        self.pos = nx.spring_layout(self.G, fixed=pos, dim=3, seed=779)
+        self.pos = nx.spring_layout(self.G, dim=3, seed=779)
 
-    def update_nodes(self, new_params):
+    def update_auction(self, buyer, seller, new_params):
         global params
         params = new_params
-        while self.nnodes(node.filter) <= params[node.type]['n']:
+        self.update_nodes(buyer)
+        self.update_nodes(seller)
+                
+    def update_nodes(self, node):
+        while self.nnodes(node.filter) < params[node.type]['n']:
             self.add_node(
                         Node(node.color, node.type, params[node.type])
                         )
@@ -102,59 +104,63 @@ class Auction:
             self.G.remove_node(
                             random.choice(self.node_list(node.filter))
                               )
-        if self.nnodes() % 40:
-            self.get_colors()
-                 
-    def update_auction(self, node):
-        if len(self.node_list(node.inv_filter, node)) < 2:
-            self.G.add_edge(
-                            node,
-                            random.choice(self.node_list(node.inv_filter)),
-                            weight=node.price 
-                            )
+        for other_node in self.node_list(node.inv_filter, node): 
+            if len(self.node_list(node.filter, other_node)) < 2:
+                self.G.add_edge(
+                                other_node,
+                                random.choice(self.node_list(node.filter)),
+                                weight=other_node.price 
+                                )
         if node.demand == 0:
             self.G.remove_node(node)
-            Node.ids.append(node.id)
+            Node.reids.append(node.id)
             self.add_node(
                         Node(node.color, node.type, params[node.type])
-                        )
+                        ) 
+ 
+        if self.nnodes() % 40:
+            self.get_colors()
+
     
     def nnodes(self, node_filter=None):
         return len(self.node_list(node_filter))
 
     def seller_list(self, node=None):
-        return self.node_list(self.filter('seller'), node)
+        return self.node_list(self.seller_filter, node)
 
     def buyer_list(self, node=None):
-        return self.node_list(self.filter('buyer'), node)
+        return self.node_list(self.buyer_filter, node)
 
     def get_colors(self, node_filter=None):
-        pass
         maxid = max([node.id for node in self.node_list(
-                                                        node_filter
-                                                        )
+                                                    node_filter
+                                                    )
                     ])
 
-        colors = np.array_split(
-                            list(sns.palettes.xkcd_palette(
-                                sns.colors.xkcd_rgb)
-                                ), 
+        self.colors = np.array_split(
+                                list(sns.colors.xkcd_rgb),
                                 10 * maxid              
-                             )
+                                )
         for node in self.node_list(node_filter):
-            node.color = colors[node.id]
+            print(self.colors[node.id])
+            node.color = self.colors[node.id][0]
  
-    def filter(self, node, type):
-        return node.type == type
+    def buyer_filter(self, node):
+        return node.type == 'buyer'
+
+    def seller_filter(self, node):
+        return node.type == 'seller'
 
     def print_auction(self):
         for seller in self.seller_list():
-            cprintnode(seller, '\t')
+            print(colored(seller, 'magenta'), seller.price, seller.demand, end='\t')
             for buyer in self.buyer_list(seller):
-                cprintnode(buyer, ' ')
+                print(colored(buyer, 'green'), buyer.price, buyer.demand, end=' ')
+
             print('')
         print('')
 
+    
 # randomly sample from a list 
 def rsample(x, params):
     u = random.sample(

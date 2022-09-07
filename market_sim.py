@@ -20,7 +20,7 @@ from signal import pthread_kill, SIGTSTP
 params = dict(
     nnodes = 35,
     buyer = dict(
-                n = 25,
+                n = 12,
                 nmax = 100,
                 factor = random.uniform(.5, .8),
                 max_price = 15,
@@ -28,7 +28,7 @@ params = dict(
                 flow = -1
                 ),
     seller = dict(
-                n = 10,
+                n = 5,
                 mmax = 80,
                 factor = random.uniform(1.2, 1.5),
                 max_price = 15,
@@ -39,7 +39,7 @@ params = dict(
     noise = True,
     rounds = 25,
     mingroupsize = 2,
-    maxgroupsize = 9,
+    maxgroupsize = 5,
     )
 
 
@@ -52,38 +52,28 @@ def get_new_data():
             print('t=',t)
             time.sleep(.1)
         except KeyboardInterrupt:
-            pthread_kill(executor.pid, SIGTSTP)
+            pthread_kill(executor, SIGTSTP)
             exit()
 
 def do_round():
     global auction_round, fig, params
     df = auctioneer.run_auctions(auction_round, params)
     fig = animation.plot_update(df)
-    print_round
+    print_round()
     auction_round += 1
 
 def print_round():
     global auction_round, params
-    #print(nx.to_dict_of_lists(self.G))
-    #print(self.G.nodes(data=True))  
-    #print(self.G.edges(data=True))
-    #print(nx.to_pandas_adjacency(self.G))
     print('round', auction_round, 
           ': nbuyers=', params['buyer']['n'], 
           ', nsellers=', params['seller']['n'],
           ', nframes=', len(animation.fig['frames']))
+    if len(sys.argv) > 1:
+        for auction in auctioneer.auctions_history[auction_round]:
+            print(auction, '\t')
     sys.stdout.flush()
     sys.stderr.flush()
-    n = 0
-    for auction_state in auctioneer.auctions_history[round_number]:
-        cprintnode(auction_state['winner'], '\t')
-        for node in auction_state['bid_history']:
-            cprintnode(node, '\t')
-        print(' ')
-        n += 1
-
-def cprintnode(node, end):
-    print(colored(node, node.color), node.price, node.demand, end=end)
+ 
 
 def make_layout():
     global fig, params
