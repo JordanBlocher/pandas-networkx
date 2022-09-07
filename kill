@@ -1,4 +1,4 @@
 killall python3
+killall brave
 pkill -9 -f market_sim
-python3 market_sim.py $1
 

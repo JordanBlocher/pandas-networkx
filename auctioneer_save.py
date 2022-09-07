@@ -16,6 +16,7 @@ import networkx as nx
 from auction import Auction
 
 import multiprocessing as mp
+from signal import SIGTSTP
 
 class Auctioneer(Auction):
 
@@ -26,7 +27,6 @@ class Auctioneer(Auction):
 
     def save_frame(self):
         nodes = sorted(self.node_list(), key=lambda x: x.id)
-        self.pos = nx.spring_layout(self.G, dim=3, seed=779)
         df = pd.Series({
                         'ts': self.f_num,
                         str(self.f_num) : {
@@ -54,10 +54,6 @@ class Auctioneer(Auction):
         seller.price = self.calculate_market_price(seller, node_list)
         
         pool = mp.Pool(mp.cpu_count())
-        for buyer in node_list:
-            print(buyer,"HERE")
-            if len(self.seller_list(buyer)) < 2:
-                print("FORGOT", buyer)
         pool_params = [( 
                     buyer, 
                     self.seller_list(buyer), 
@@ -73,7 +69,7 @@ class Auctioneer(Auction):
             exit()
         pool.close()
         
-        winner = self.second_price_winner(seller)
+        winner, colors = self.second_price_winner(seller)
         #profit = winner.price - seller.price 
 
         node_list.remove(winner)
@@ -82,7 +78,8 @@ class Auctioneer(Auction):
                         buyer, 
                         weight=winner.price
                         ) for buyer in node_list]
-        #winner.color = self.buyer_colors[seller.id][-1]
+        #[node.color = pallet[node.id] for node in node_list]
+        winner.color = self.buyer_colors[seller.id][-1]
         seller.demand -= 1
         winner.demand += 1
 
@@ -118,8 +115,7 @@ class Auctioneer(Auction):
                                               bid_history=bid_history,
                                               auction_round=auction_round
                                               ) # Watch this
-            self.update_auction(winner)
-            self.update_auction(seller)
+            self.update_auction(seller, winner)
 
 
             pool = mp.Pool(mp.cpu_count())
@@ -139,7 +135,7 @@ class Auctioneer(Auction):
 
         end_time = time.thread_time()
 
-        return self.df
+        return self.auctions_history[auction_round], self.df
 
     def calculate_consistent_bid(self, buyer, node_list, neighbors):
         global params
@@ -170,7 +166,16 @@ class Auctioneer(Auction):
                         node, 
                         weight=buyer.price
                         ) for node in node_list]
-
+        '''
+        palette = sns.diverging_palette(
+                                    buyer.color, 
+                                    node.color,
+                                    l=65, 
+                                    center="dark", 
+                                    as_cmap=True
+                                    ) 
+        #[node.color = palette[node.id] for node in node_list]
+        '''
         self.save_frame()
         return buyer
  
@@ -183,8 +188,23 @@ class Auctioneer(Auction):
         else:
             winner.price = sorted_buyers[0].price
         self.G.add_edge(winner, seller, weight=winner.price)
-         
-        return winner
+        '''
+        seller.color = sns.diverging_palette(
+                                    seller.color,
+                                    winner.color, 
+                                    l=45, 
+                                    center="light", 
+                                    as_cmap=True
+                                    )[0]
+
+        palette = sns.diverging_palette(
+                                    winner.color,
+                                    node.color, 
+                                    l=65, 
+                                    center="light", 
+                                    as_cmap=True)
+        '''
+        return winner#, palette
 
     def calculate_market_price(self, seller, node_list):
         global params
@@ -207,6 +227,17 @@ class Auctioneer(Auction):
 
         #for buyer in node_list:
          #   self.G.add_edge(seller, buyer, weight=seller.price)
+        '''
+        pallet = sns.diverging_palette(
+                                seller.color,
+                                node.color, 
+                                l=65, 
+                                center="dark", 
+                                n_colors=1, 
+                                as_cmap=True
+                                )
+        '''
+        #[node.color = palette[node.id] for node in node_list]
 
         return seller.price
 

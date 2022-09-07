@@ -1,27 +1,58 @@
 import random
 import numpy as np
 np.set_printoptions(precision=2)
-from params import * 
-import json
 
-def Buyer():
-    return Node('green', 'buyer', BUYER_FACTOR, -1)
+    
+MAX_NETWORK_SIZE = 200
 
-def Seller():
-    return Node('magenta', 'seller', SELLER_FACTOR, 1)
+
+def Buyer(params):
+    return Node('green', 'buyer', params['buyer'])
+
+def Seller(params):
+    return Node('magenta', 'seller', params['seller'])
 
 class Node:
-
-    ids = [n for n in range(1, MAX_NETWORK_SIZE)]
+    
+    ids = [n for n in reversed(range(1, MAX_NETWORK_SIZE))]
+    #factor = np.random.uniform(0.09, 0.99, size=200)
     id = 0
 
-    def __init__(self, color, ntype, factor, flow):
-        self.id = Node.ids.pop(0)
-        self.demand = int(np.random.uniform(1, MAX_QUANTITY))*flow
-        self.private_value = RD(np.random.uniform(1, MAX_PRICE))
+    def __init__(self, color, type, params):
+        self.id = Node.ids.pop()
+        self.demand = int(
+                        np.random.uniform(1, params['max_quantity'])
+                         ) * params['flow']
+        self.private_value = round(np.random.uniform(1, params['max_price']),2)
         self.color = color
-        self.type = ntype
-        self.price = RD(self.private_value*random.uniform(BUYER_FACTOR, SELLER_FACTOR))
+        self.type = type
+        self.price = round(self.private_value*params['factor'],2)
+
+    def __repr__(self):
+        return str(self.id)
+
+    def filter(self, node):
+        return node.type  == self.type
+        #return self.G.nodes(data=True)[node]['type'] == 'seller'
+
+    def inv_filter(self, node):
+        return node.type  != self.type
+        #return self.G.nodes(data=True)[node]['type'] == 'seller'
+
+    def __invert__(self):
+        self.demand *= -1
+        if self.type == 'buyer':
+            self.type = 'seller'
+        elif self.type == 'seller':
+            self.type = 'buyer'
+        return (self)
+
+    def __neq__(self, node):
+        return self.type != node.type
+
+    def __eq__(self, node):
+        return self.type == node.type
+
 
     def __str__(self):
         return str(self.id)
@@ -37,18 +68,5 @@ class Node:
 
     def __ge__(self, other):
         return self.id >= other.id
-
-    def bid(self):
-        return {"price": RD(self.price), "demand": self.demand}
-
-    def __repr__(self):
-        return str(self.id)
-
-    def data(self):
-        return {"price": RD(self.price), \
-                "value": RD(self.private_value), \
-                "color": self.color,\
-                 "type": self.type}
-
 
 

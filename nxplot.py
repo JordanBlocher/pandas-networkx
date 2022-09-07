@@ -5,17 +5,9 @@ import matplotlib.animation as animation
 import seaborn as sns
 import pandas as pd
 from scipy.cluster.hierarchy import dendrogram, linkage
-import plotly.express as px
 import plotly.subplots as sp
 import plotly.graph_objects as go
-import plotly.io as pio
 
-from params import * 
-from auctioneer import Auctioneer
-from auction import Auction
-from auction_state import AuctionState
-
-from termcolor import colored
 import networkx as nx
 import numpy as np
 
@@ -26,104 +18,215 @@ class Animate:
 
     fig = None
     num_frames = 0
-    max_frames = 0
 
     def __init__(self):
-        self.fig = sp.make_subplots(rows=1, cols=1)
-        self.max_frames = 2*(NBUYERS+MSELLERS)
-        self.num_frames = 0
+        self.fig = sp.make_subplots(
+                                    rows=2, 
+                                    cols=2, 
+                                    subplot_titles = ('Subplot (1,1)', '', 'Subplot(1,2)', 'Subplot(1,3)'),
+                                    specs=[
+                                            [{'colspan':2},{}],
+                                            [{},{'type': 'surface'}]
+                                        ]
+                                    )
 
-    def price_plot(self, pf):
-        g = pf.groupby('time')
-        keys = g.groups.keys()
+    def plot(self, df):
+
+        self.fig.add_trace(
+                        go.Bar(
+                            x=df['0']['id'], 
+                            y=df['0']['price'],
+                            hovertext=df['0']['price'],
+                            hovertemplate='<b>%{hovertext}</b><extra></extra>',
+                            ids=df['0']['id'], 
+                            xaxis='x1', 
+                            yaxis='y1',
+                            marker=dict(color=df['0']['color'])
+                            ),
+                         row=1, 
+                         col=1
+                         )
+
+        self.fig.add_trace(
+                        go.Heatmap(
+                            z=df['0']['adj'].values,
+                            hovertext=df['0']['adj'].values,
+                            hovertemplate='<b>%{hovertext}</b><extra></extra>',
+                            ids=df['0']['id'], 
+                            ),
+                         row=2, 
+                         col=1
+                         )
+
+        self.fig.add_trace(
+                        go.Scatter3d(
+                            x=df['0']['npos'].T[0],
+                            y=df['0']['npos'].T[1],
+                            z=df['0']['npos'].T[2],
+                            hovertext=df['0']['id'],
+                            hovertemplate='<b>%{hovertext}</b><extra></extra>',
+                            ids=df['0']['id'], 
+                            ),
+                         row=2, 
+                         col=2
+                         )
+
+        keys = [df['ts']]
         self.num_frames += len(keys) 
-        self.fig.add_trace(go.Bar(x=pf['id'], y=pf['price'],
-                            hovertext=pf['price'],
-                            hovertemplate='<b>%{hovertext}</b><br>price=%{y}<extra></extra>',
-                            ids=pf['id'], xaxis='x', yaxis='y'), row=1, col=1)
 
-        updatemenus = [dict(type='buttons',
-            buttons=[dict(label='Play',
-              method='animate',
-              args=[[f'{k}' for k in keys],
-                    dict(frame=dict(duration=500, redraw=True),
+        updatemenus = [
+            dict(
+                type='buttons',
+                buttons=[
+                dict(
+                    label='Play',
+                    method='animate',
+                    args=[
+                        [f'{k}' for k in keys],
+                        dict(
+                            frame=
+                            dict(duration=500, redraw=True),
+                            transition=dict(duration=0),
+                            easing='linear',
+                            fromcurrent=True,
+                            mode='immediate'
+                        )]
+                    ),
+              dict(
+                label='Pause',
+                method='animate',
+                args=[
+                    [None],
+                    dict(
+                        frame=dict(duration=0, redraw=False),
                          transition=dict(duration=0),
-                         easing='linear',
-                         fromcurrent=True,
                          mode='immediate'
-                         )]),
-              dict(label='Pause',
-              method='animate',
-              args=[[None],
-                    dict(frame=dict(duration=0, redraw=False),
-                         transition=dict(duration=0),
-                         mode='immediate'
-                         )])
-            ],
+                         )
+                     ]
+                 )],
             direction='left',
             pad=dict(r=10, t=85),
-            showactive=True, x=0.1, y=0, xanchor='right', yanchor='top')
-            ]
+            showactive=True, 
+            x=0.1, y=0, 
+            xanchor='right', yanchor='top'
+            )]
 
-        xaxis = {'anchor': 'y', 'domain': [0.0, 1.0], 
-                 'range': [1, MAX_NETWORK_SIZE], 'title': {'text': 'id'}}
-        yaxis = {'anchor': 'x', 'domain': [0.0, 1.0], 
-                 'range': [1, MAX_PRICE], 'title': {'text': 'price'}}
-
+        xaxis1 = {
+                'anchor': 'y1', 
+                'range': [1, len(df['0']['id'])], 
+                }
+        yaxis1 = {
+                'anchor': 'x1', 
+                'range': [1,  max(df['0']['price'])+2], 
+                }
+        
         sliders = {'active': 0,
-                   'currentvalue': {'font': {'size': 16}, 
-                   'prefix': 'time_ms=', 'visible': True, 'xanchor': 'right'},
-                   'len': 0.9, 'pad': {'b': 10, 't': 60},
-            'steps': [{'args': [[k], 
-                   {'frame': {'duration': 0, 'redraw': True}, 'mode':
-                    'immediate', 'fromcurrent': True, 'transition':
-                   {'duration': 0, 'easing': 'linear'}}],
-            'label': k, 'method': 'animate'} for k in keys],
-             'transition': {'duration': 0, 'easing': 'linear'},
-                'x': 0.1,
-                'xanchor': 'left',
-                'y': 0,
-                'yanchor': 'top'
-            }
+                   'currentvalue': {
+                                'font': {'size': 16}, 
+                                'prefix': 'ts=', 
+                                'visible': True, 
+                                'xanchor': 'right'
+                    },
+                    'len': 0.9, 
+                    'pad': {'b': 10, 't': 60},
+                    'steps': [{
+                        'args': [
+                            [k], {
+                                'frame': {
+                                      'duration': 0, 
+                                      'redraw': True
+                                }, 
+                                'mode': 'immediate', 
+                                'fromcurrent': True, 
+                                'transition': {
+                                      'duration': 0, 
+                                      'easing': 'linear'
+                                }
+                        }],
+                        'label': k, 
+                        'method': 'animate'
+                        } for k in keys
+                    ],
+                    'transition': {'duration': 0, 
+                                    'easing': 'linear'
+                    },
+                    'x': 0.1,
+                    'xanchor': 'left',
+                    'y': 0,
+                    'yanchor': 'top'
+                }
     
 
-        self.fig.update_xaxes(xaxis)
-        self.fig.update_yaxes(yaxis)
-        self.fig.update_layout(updatemenus=updatemenus, sliders=[sliders])
+        #self.fig.update_xaxes(xaxis)
+        #self.fig.update_yaxes(yaxis)
+        self.fig.update_layout(height=900, updatemenus=updatemenus, sliders=[sliders])
         self.frames = self.fig['frames']
         return self.fig
 
 
-    def price_plot_update(self, pf):
-        g = pf.groupby('time')
-        keys = g.groups.keys()
-        self.num_frames += len(keys) 
-        args  = tuple([[f'{k}' for k in keys],
-                    dict(frame=dict(duration=500, redraw=True),
-                         transition=dict(duration=0),
-                         easing='linear',
-                         fromcurrent=True,
-                         mode='immediate'
-                         )])
-        steps = tuple([{'args': [[k], 
-                   {'frame': {'duration': 0, 'redraw': True}, 'mode':
-                    'immediate', 'fromcurrent': True, 'transition':
-                   {'duration': 0, 'easing': 'linear'}}],
-           'label': k, 'method': 'animate'} for k in keys])
-        frames = tuple([dict( name=k,
-            data = [go.Bar(x=g.get_group(k)['id'], 
-            y=g.get_group(k)['price'], hovertext=g.get_group(k)['price'],
-            hovertemplate='<b>%{hovertext}</b><br>price=%{y}<extra></extra>',
-            ids=g.get_group(k)['id'], xaxis='x', yaxis='y')],
-                    traces=[0]) for k in keys])
-
+    def plot_update(self, df):
+        keys = np.array(df['ts'].values, dtype=str)
+        args  = tuple(
+                    [[f'{k}' for k in keys],
+                    dict(
+                        frame=dict(duration=500, redraw=True),
+                        transition=dict(duration=0),
+                        easing='linear',
+                        fromcurrent=True,
+                        mode='immediate'
+                        )
+                    ])
+        steps = tuple(
+                    [{'args': [
+                        [k], {
+                            'frame':{'duration': 0, 'redraw': True}, 
+                            'mode':'immediate', 
+                            'fromcurrent': True, 
+                            'transition':{
+                                'duration': 0, 
+                                'easing': 'linear'
+                            }}],
+                    'label': k, 
+                    'method': 'animate'
+                    } for k in keys]
+                    )
+        frames = tuple(
+                    [dict( 
+                        name=k,
+                        data=[
+                            go.Bar(
+                                x=df[k]['id'], 
+                                y=df[k]['price'],
+                                hovertext=df[k]['price'],
+                                hovertemplate='<b>%{hovertext}</b><br>price=%{y}<extra></extra>',
+                                ids=df[k]['id'],
+                                xaxis='x1', 
+                                yaxis='y1'),
+                            go.Heatmap(
+                                z=df[k]['adj'].values,
+                                ),
+                            go.Scatter3d(
+                                x=df[k]['npos'].T[0],
+                                y=df[k]['npos'].T[1],
+                                z=df[k]['npos'].T[2],
+                                ),
+                            ],
+                        traces=[0,1,2]
+                        ) for k in keys]
+                        )
+        MAX_X = max([len(df[k]['id']) for k in keys])
+        MAX_Y = max([max(df[k]['price']) for k in keys])
+        self.fig['frames'] += frames
         self.fig['layout']['updatemenus'][0]['buttons'][0]['args'] = args
         self.fig['layout']['sliders'][0]['steps'] += steps 
-        self.fig['frames'] += frames
+        #self.fig['layout']['xaxis']['range'] = [1, MAX_X]
+        #self.fig['layout']['yaxis']['range'] = [1, MAX_Y]
+        self.fig.update_layout()
         self.fig.update()
-
         return self.fig
-        
+
+ 
+
 
     def show(self):
         #print("FRAMES", self.fig['frames'])
@@ -131,9 +234,9 @@ class Animate:
 
     
     '''
-    def price_plot_old(self, pf):
-        #self.pf = self.pf.append(pf)
-        price = px.bar(pf, x='id', y='price', 
+    def price_plot_old(self, df):
+        #self.df = self.df.append(df)
+        price = px.bar(df, x='id', y='price', 
                         animation_frame='time_ms',
                         hover_name='price', animation_group='id', 
                         log_x=False, range_x=[1,MSELLERS+NBUYERS], 
@@ -173,8 +276,8 @@ class Animate:
 
 
         frames = [ dict ( name=k,
-            data = [go.Bar(x=pf['id'], y=pf['t'])], 
-            traces=[0]) for k in pf['time_ms']]
+            data = [go.Bar(x=df['id'], y=df['t'])], 
+            traces=[0]) for k in df['time_ms']]
         self.fig.update(frames=frames)
         pos = nx.spring_layout(self.G, dim=3, seed=779)
         # Extract node and edge positions from the layout
