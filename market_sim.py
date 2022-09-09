@@ -8,6 +8,7 @@ import time
 from auctioneer import Auctioneer
 from auction import Auction
 from nxplot import NXPlot, Animate
+import networkx as nx
 
 import dash
 from dash import dcc
@@ -17,66 +18,106 @@ from dash.dependencies import Input, Output
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from signal import pthread_kill, SIGTSTP
 
-params = dict(
-    nnodes = 35,
-    buyer = dict(
-                n = 12,
-                nmax = 100,
-                factor = random.uniform(.5, .8),
-                max_price = 15,
-                max_quantity = 10,
-                flow = -1
-                ),
-    seller = dict(
-                n = 5,
-                mmax = 80,
-                factor = random.uniform(1.2, 1.5),
-                max_price = 15,
-                max_quantity = 10,
-                flow = 1
-                ),
-    option = False,
-    noise = True,
-    rounds = 25,
-    mingroupsize = 2,
-    maxgroupsize = 5,
-    )
-
 
 def get_new_data():
-    start = time.time()
+    global start_time
     while True:
         try:
-            df = do_round()
-            t = round(time.time()-start,2)
+            df = do_round(start_time)
+            t = round(time.time()-start_time,2)
             print('t=',t)
             time.sleep(.1)
         except KeyboardInterrupt:
             pthread_kill(executor, SIGTSTP)
             exit()
 
-def do_round():
-    global auction_round, fig, params
-    df = auctioneer.run_auctions(auction_round, params)
+def do_round(start_time):
+    global auction_round, fig
+    df = auctioneer.run_auctions(auction_round)
     fig = animation.plot_update(df)
     print_round()
     auction_round += 1
 
 def print_round():
-    global auction_round, params
+    global auction_round, nbuyers, nsellers
     print('round', auction_round, 
-          ': nbuyers=', params['buyer']['n'], 
-          ', nsellers=', params['seller']['n'],
+          ': nbuyers=', nbuyers, 
+          ', nsellers=', nsellers,
           ', nframes=', len(animation.fig['frames']))
     if len(sys.argv) > 1:
         for auction in auctioneer.auctions_history[auction_round]:
             print(auction, '\t')
     sys.stdout.flush()
     sys.stderr.flush()
+   
+   
+
+app = dash.Dash(__name__)
+executor = ThreadPoolExecutor(max_workers=1)
+  
+
+def make_params():
+    global start_time, nsellers, nbuyers
+    MNSZE = 200
+    rng = nx.utils.create_random_state()
+    
+    max_price = 15
+    nsellers = 11
+    nbuyers = 17
  
+    inc_max = 1, #1.5
+    inc_min = .9, #1.2
+    dec_max = 0.9, #0.7
+    dec_min = 0.8, #0.3
+
+    return dict(
+    option = False,
+    noise = False,
+    max_price = max_price,
+    nsellers = nsellers,
+    nbuyers = nbuyers,
+    # nnodes, g_mod, and nbuyers/sellers are not independent, 
+    # there should be an optimal
+    # formula for EQ
+    nnodes = nbuyers+nsellers,
+    price = rng.poisson(max_price, size=MNSZE),
+    g_max = min(nbuyers, nsellers)-2,
+    noise_factor = dict(
+                        low = .2, #nOTE: TRY NEGATIVE VALUES
+                        high = 1.2,
+        ),
+    buyer = dict(
+            init_factor = rng.uniform(.5, .8), # bid under
+            max_price = 15,
+            max_quantity = 10,
+            flow = -1,
+
+            ),
+    inc_factor = rng.uniform(
+                            inc_min, 
+                            inc_max, 
+                            size=MNSZE
+                            ),
+    dec_factor = rng.uniform(
+                            dec_min, 
+                            dec_max, 
+                            size=MNSZE
+                            ),
+    seller = dict(
+            init_factor = rng.uniform(1.2, 1.5), # bid over
+            max_price = 15,
+            max_quantity = 10,
+            flow = 1,
+            increase_max = 1,
+            increase_min = .1,
+            decrease_max = 1,
+            decrease_min = .1,
+            )
+        )
 
 def make_layout():
     global fig, params
+    params = make_params()
     return html.Div(
         [
         dcc.Graph(
@@ -92,7 +133,7 @@ def make_layout():
                     id='n-buyers',
                     min=0,
                     max=100,
-                    value=params['buyer']['n'], 
+                    value=params['nbuyers'], 
                     tooltip={'placement': 'bottom'}
                 ),
                 html.Label('nsellers', style={'text-align': 'right'}),
@@ -100,7 +141,7 @@ def make_layout():
                     id='n-sellers',
                     min=0,
                     max=100,
-                    value=params['seller']['n'],
+                    value=params['nsellers'],
                     tooltip={'placement': 'bottom'}
                 )
             ],
@@ -109,12 +150,11 @@ def make_layout():
         html.Div(id='hidden-div')  
         ])
 
-
-app = dash.Dash(__name__)
-executor = ThreadPoolExecutor(max_workers=1)
-    
+global start_time
 auction_round = 0
-auctioneer = Auctioneer(params)
+start_time = time.time()     
+
+auctioneer = Auctioneer(make_params, start_time)
 df = auctioneer.save_frame()
 animation = Animate()
 fig = animation.plot(df)
@@ -123,13 +163,14 @@ app.layout = make_layout
 
 @app.callback(
     Output('hidden-div', 'children'),[
-    Input('n-slider', 'value'), Input('m-slider', 'value')
+    Input('n-buyers', 'value'), Input('n-sellers', 'value')
     ]
 )
 def update_output(n, m):
-    global params
-    params['buyer']['n'] = n
-    params['seller']['n'] = m
+    global nbuyers, nsellers
+    nbuyers = n
+    nsellers = m
+    auctioneer.update_params()
 
 
 # Execute with parameters

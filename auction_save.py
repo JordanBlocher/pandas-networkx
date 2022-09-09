@@ -108,9 +108,9 @@ class Auction:
                             ])
                            
 
-    def update_nodes(self, new_params):
+    def update_nodes(self):
         global params
-        params = new_params
+        params = self.make_params()
         while self.nbuyers() < params['buyer']['n']:
             self.add_node(
                         Buyer(params)

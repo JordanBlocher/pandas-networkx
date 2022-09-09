@@ -7,6 +7,18 @@ from seller import Seller
 from auction import Auction
 import networkx as nx
 
+
+def validate_params(params):
+    nbuyers = params['buyers']['n']
+    nsellers = params['sellers']['n']
+
+    if params['nnodes'] =! nbuyers+nsellers:
+        raise('population mismatch') 
+    for i in range(100):
+        x = params['g_max']
+        if x < nbuyers or x < nsellers:
+            raise('empty auction warning')
+
 def test_buyer():
     buyer = Buyer()
     return True

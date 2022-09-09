@@ -71,7 +71,7 @@ class Animate:
                          col=2
                          )
 
-        keys = [df['ts']]
+        keys = [df['f']]
         self.num_frames += len(keys) 
 
         updatemenus = [
@@ -165,7 +165,7 @@ class Animate:
 
 
     def plot_update(self, df):
-        keys = np.array(df['ts'].values, dtype=str)
+        keys = np.array(df['f'].values, dtype=str)
         args  = tuple(
                     [[f'{k}' for k in keys],
                     dict(
