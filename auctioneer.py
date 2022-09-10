@@ -168,10 +168,11 @@ class Auctioneer(Auction):
         buyer_list = self.buyer_list(seller)
         sorted_buyers = sorted(buyer_list, key=lambda x: x.price, reverse=True)
         winner = sorted_buyers[0]
-        winner.private_value = winner.price
+        winner.private_value = round(winner.price,2)
         if len(sorted_buyers) > 1:
             winner.price = sorted_buyers[1].price
         else:
+            print('Taking first price')
             winner.price = sorted_buyers[0].price
 
         self.G.add_edge(winner, seller, weight=winner.price)

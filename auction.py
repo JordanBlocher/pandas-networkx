@@ -18,10 +18,39 @@ class Auction:
         self.make_params = make_params
         self.start_time = start_time
 
-        nodes = [Node(params['seller']) for n in range(params['nsellers'])] + \
-                [Node(params['buyer']) for n in range(params['nbuyers'])]
+        
+        buyer_price = rng.poisson(
+                            params['buyer']['max_price'], 
+                            size=params['nnodes']+5
+                            )
+        seller_price = rng.poisson(
+                            params['buyer']['max_price'], 
+                            size=params['nnodes']+5
+                            )
+        params['buyer']['price'] = buyer_price
+        params['seller']['price'] = seller_price
+        inc_factor = rng.uniform(
+                                params['buyer']['inc'][0], 
+                                params['buyer']['inc'][1], 
+                                size=params['nnodes']+5
+                                ),
+        dec_factor = rng.uniform(
+                                params['buyer']['dec'][0], 
+                                params['buyer']['dec'][1], 
+                                size=params['nnodes']+5
+                                ),
+        params['buyer']['inc_factor'] = inc_factor
+        params['buyer']['dec_factor'] = dec_factor
+
+        nodes = [Node(
+                    params['seller']
+                    ) for n in range(params['nsellers'])
+                ] + \
+                [Node(
+                    params['buyer']
+                    ) for n in range(params['nbuyers'])
+                ]
         for node in nodes:
-            node.price *= rng.choice(params['price'])
             self.G.add_node(
                             node, 
                             value=node.private_value, 
@@ -43,7 +72,7 @@ class Auction:
                                 other_node, 
                                 weight = node.price
                                 )
-
+        self.print_auction()
         self.pos = nx.spring_layout(self.G, dim=3, seed=779)
       
 
@@ -76,7 +105,6 @@ class Auction:
                         len(self.node_list(node.inv_filter)),
                         params['g_max']
                         )
-        print(self.node_list(node.inv_filter), max_sample)
         neighbors = rsample(
                             self.node_list(node.inv_filter),
                             max_sample
@@ -115,35 +143,36 @@ class Auction:
                             )               
     
     def update_demand(self, node):
+        print("UPDATING", node.type, node.id) 
         if node in self.G:
             if node.demand == 0:
                 Node.ids.append(node.id)
                 self.G.remove_node(node)
-                new_node = Node(params[node.type()])
-                self.add_node(new_node) 
+                new_node = Node(params[node.type]) 
+                self.add_node(new_node)
+                print("ADDING", new_node.type, new_node.id) 
 
-    def update_params(self, new_params):
+    def update_params(self):
         global params
-        params = new_params
+        params = self.make_params()
         seller = rng.choice(self.seller_list())
-        buyer = rng.choice(self.seller_list())
+        buyer = rng.choice(self.buyer_list())
         self.update_nodes(buyer)
         self.update_nodes(seller)
      
     def update_nodes(self, node):
         global params
-        if 'net' in params.keys():
-            node_filter=node.filter
-            ntype=node.type()
-            while self.nnodes(node_filter) < params['n'+ntype+'s']:
-                new_node = Node(params[ntype])
-                self.add_node(new_node) 
-                raise("ADDED")
-            while self.nnodes(node_filter) > params['n'+ntype+'s']:
-                choice = rng.choice(self.node_list(node_filter))
-                Node.ids.append(choice.id)
-                self.G.remove_node(choice)
-                raise("LOST")
+        node_filter=node.filter
+        ntype=node.type
+        while self.nnodes(node_filter) < params['n'+ntype+'s']:
+            new_node = Node(params[ntype])
+            self.add_node(new_node) 
+            raise("ADDED")
+        while self.nnodes(node_filter) > params['n'+ntype+'s']:
+            choice = rng.choice(self.node_list(node_filter))
+            Node.ids.append(choice.id)
+            self.G.remove_node(choice)
+            raise("LOST")
 
     
     def nnodes(self, node_filter=None):
@@ -162,17 +191,41 @@ class Auction:
         return len(self.seller_list())
 
     def buyer_filter(self, node):
-        return node.type() == 'buyer'
+        return node.type == 'buyer'
 
     def seller_filter(self, node):
-        return node.type() == 'seller'
+        return node.type == 'seller'
 
     def print_auction(self):
         for seller in self.seller_list():
-            print(colored('%4s' % seller, 'magenta'), '%2s' % seller.demand, end='\t')
+            print(colored(seller, 'magenta'), end=' ') 
+        for buyer in self.buyer_list():
+            print(colored(buyer, 'green'), end=' ')
+        print('')
+        for seller in self.seller_list():
+            print(colored(seller, 'magenta'), end=' ') 
             for buyer in self.buyer_list(seller):
-                print(colored(buyer, 'green'), '%3s' % buyer.demand, end=' ')
-            print(' ')
+                print(colored(buyer, 'green'), end=' ')
+            print('')
+        return
+ 
+        for seller in self.seller_list():
+            print(
+                colored(seller, 'magenta'), 
+                colored('%3s' % seller.demand, 'yellow'),
+                colored('%3s' % seller.price, 'blue'),
+                colored('%3s' % seller.private_value, 'cyan'),
+                end=' '
+                )
+            for buyer in self.buyer_list(seller):
+                print(
+                    colored(buyer, 'green'), 
+                    colored('%3s' % buyer.demand, 'yellow'),
+                    colored('%3s' % buyer.price, 'blue'),
+                    colored('%3s' % buyer.private_value, 'cyan'),
+                    end=' '
+                    )
+            print('\n')
 
 # randomly sample from a list 
 def rsample(x, n):

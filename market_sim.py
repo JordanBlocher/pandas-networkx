@@ -61,57 +61,57 @@ def make_params():
     MNSZE = 200
     rng = nx.utils.create_random_state()
     
+    option = False
+    noise = False
     max_price = 15
     nsellers = 11
     nbuyers = 17
  
-    inc_max = 1, #1.5
-    inc_min = .9, #1.2
-    dec_max = 0.9, #0.7
-    dec_min = 0.8, #0.3
+    noise_low = .2, #nOTE: TRY NEGATIVE VALUES
+    noise_high = 1.2
+
+    buyer_init_factor = rng.uniform(.5, .8) # bid under
+    buyer_max_price = 15
+    buyer_max_quantity = 10
+    buyer_inc = [.9, 1] # 1.2 1.5
+    buyer_dec = [0.8, 9] #0.3 0.7
+ 
+    seller_init_factor = rng.uniform(1.2, 1.5) # bid over
+    seller_max_price = 12
+    seller_max_quantity = 10
+    seller_inc = [.1, 1]
+    seller_dec = [.1, 1]
+
 
     return dict(
-    option = False,
-    noise = False,
-    max_price = max_price,
+    option = option,
+    noise = noise,
     nsellers = nsellers,
     nbuyers = nbuyers,
     # nnodes, g_mod, and nbuyers/sellers are not independent, 
     # there should be an optimal
     # formula for EQ
     nnodes = nbuyers+nsellers,
-    price = rng.poisson(max_price, size=MNSZE),
     g_max = min(nbuyers, nsellers)-2,
     noise_factor = dict(
-                        low = .2, #nOTE: TRY NEGATIVE VALUES
-                        high = 1.2,
+                        low = noise_low,
+                        high = noise_high,
         ),
     buyer = dict(
-            init_factor = rng.uniform(.5, .8), # bid under
-            max_price = 15,
-            max_quantity = 10,
+            init_factor = buyer_init_factor,
+            max_price = buyer_max_price,
+            max_quantity = buyer_max_quantity,
+            inc = buyer_inc,
+            dec = buyer_dec,
             flow = -1,
-
+            price = []
             ),
-    inc_factor = rng.uniform(
-                            inc_min, 
-                            inc_max, 
-                            size=MNSZE
-                            ),
-    dec_factor = rng.uniform(
-                            dec_min, 
-                            dec_max, 
-                            size=MNSZE
-                            ),
     seller = dict(
-            init_factor = rng.uniform(1.2, 1.5), # bid over
-            max_price = 15,
-            max_quantity = 10,
+            init_factor = seller_init_factor,
+            max_price = seller_max_price,
+            max_quantity = seller_max_quantity,
             flow = 1,
-            increase_max = 1,
-            increase_min = .1,
-            decrease_max = 1,
-            decrease_min = .1,
+            price = []
             )
         )
 

@@ -4,38 +4,37 @@ import networkx as nx
 import seaborn as sns
 np.set_printoptions(precision=2)
     
-MAX_NETWORK_SIZE = 200
-
 
 class Node:
     
-    ids = [n for n in reversed(range(1, MAX_NETWORK_SIZE))]
+    ids = []
     #factor = np.random.uniform(0.09, 0.99, size=200)
     id = 0
 
     def __init__(self, params):
         rng = nx.utils.create_random_state()
-        self.id = rng.choice(Node.ids, replace=False)
+        if len(Node.ids) > 1:
+            self.id = rng.choice(Node.ids, replace=False)
+        else:
+            Node.id +=1
+            self.id = Node.id
         self.demand = rng.randint(1, params['max_quantity']) * params['flow']
         self.private_value = None
-        key = rng.choice(
-                    list(sns.palettes.xkcd_rgb.keys())) 
+        key = list(sns.palettes.xkcd_rgb.keys())[self.id] 
  
         self.color = sns.palettes.xkcd_rgb[key]
-        self.price = params['init_factor']
+        self.price = round(params['init_factor'] * params['price'][self.id],2)
+        if self.demand < 0:
+            self.type = 'buyer'
+        else:
+            self.type = 'seller'
 
     def filter(self, node):
-        return self.type() ==  node.type()
+        return self.type ==  node.type
 
     def inv_filter(self, node):
-        return self.type() !=  node.type()
+        return self.type !=  node.type
 
-    def type(self):
-        if self.demand < 0:
-            return 'buyer'
-        else:
-            return 'seller'
-        
     def __repr__(self):
         return str(self.id)
 

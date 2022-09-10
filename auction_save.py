@@ -129,8 +129,6 @@ class Auction:
                             random.choice(self.seller_list())
                             )
             self.nnodes -= 1
-        if self.nnodes % 40:
-            self.get_colors()
          
     def update_auction(self, seller, winner):
         for buyer in self.buyer_list(seller):
