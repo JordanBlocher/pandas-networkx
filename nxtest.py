@@ -11,11 +11,76 @@ import plotly.graph_objects as go
 import networkx as nx
 import numpy as np
 
+from auctioneer import Auctioneer
+import time
+
 sns.set()
 rocket = sns.color_palette('rocket', as_cmap=True)
 mako = sns.color_palette('mako', as_cmap=True)
 winter = sns.color_palette('winter', as_cmap=True)
 cool = sns.color_palette('cool', as_cmap=True)
+
+def make_params():
+    global start_time, nsellers, nbuyers, auction_round
+
+    auction_round = 0
+    rng = nx.utils.create_random_state()
+    
+    nsellers = 5
+    nbuyers = 7
+    option = False
+    noise = False
+    nnodes = nbuyers+nsellers
+    max_price = 15
+    noise_low = .2, #nOTE: TRY NEGATIVE VALUES
+    noise_high = 1.2
+
+    buyer_init_factor = rng.uniform(.5, .8) # bid under
+    buyer_max_price = 15
+    buyer_max_quantity = 10
+    buyer_inc = [.9, 1] # 1.2 1.5
+    buyer_dec = [0.8, 9] #0.3 0.7
+
+    seller_init_factor = rng.uniform(1.2, 1.5) # bid over
+    seller_max_price = 12
+    seller_max_quantity = 10
+    seller_inc = [.1, 1]
+    seller_dec = [.1, 1]
+
+    return dict(
+    auction_round = auction_round,
+    option = option,
+    noise = noise,
+    nsellers = nsellers,
+    nbuyers = nbuyers,
+    # nnodes, g_mod, and nbuyers/sellers are not independent, 
+    # there should be an optimal
+    # formula for EQ
+    nnodes = nnodes,
+    g_max = min(nbuyers, nsellers)-2,
+    noise_factor = dict(
+                        low = noise_low,
+                        high = noise_high,
+        ),
+    buyer = dict(
+            init_factor = buyer_init_factor,
+            max_price = buyer_max_price,
+            max_quantity = buyer_max_quantity,
+            inc = buyer_inc,
+            dec = buyer_dec,
+            flow = -1,
+            price = []
+            ),
+    seller = dict(
+            init_factor = seller_init_factor,
+            max_price = seller_max_price,
+            max_quantity = seller_max_quantity,
+            inc = seller_inc,
+            dec = seller_dec,
+            flow = 1,
+            price = []
+            )
+        )
 
 
 class Animate:
@@ -25,6 +90,8 @@ class Animate:
     ntraces = 0
 
     def __init__(self):
+        start_time = time.time()     
+        self.a = Auctioneer(make_params, start_time)
         self.fig = sp.make_subplots(
                                     rows=2, 
                                     cols=2, 
@@ -37,30 +104,21 @@ class Animate:
                                         ],
                                     )
 
-    def plot(self, df):
-        rf = df['0']
-        nodes = [eval(frame['nodes'][key]) for key in rf['nodes']]
-        ndata = np.array([
-                    [key for key in frame['nodes']],
-                    [node['type'] for node in nodes],
-                    [node['price'] for node in nodes],
-                    [node['demand'] for node in nodes],
-                    [node['value'] for node in nodes]
-                ], dtype=object)
-        pos = np.array([node['pos'] for node in nodes], dtype=object)
-        color = np.array([node['color'] for node in nodes], dtype=object)
-        nbuyers = list(ndata[1]).count('buyer')
-        nsellers = list(ndata[1]).count('seller')
-        print(nsellers)
-        mat = frame['adj']
-        index = frame['adj'].index
-        print(frame['adj'][index[nsellers]:index[-1]])
+    def plot(self,df):
+        print(df['0']['id'][2])
+        print(df['0']['id'][1])
+        print(df['0']['adj'])
+        print(df['0']['adj'][df['0']['nsellers']:], '\n')
+        print(df['0']['adj'].axes[0][df['0']['nsellers']:])
+        adj = df['0']['adj']
 
         self.fig.add_trace(
                         go.Contour(
-                            z=mat[index[df['nsellers']:index[-1]],
+                            x=df['0']['adj'][df['0']['nsellers']:].index,
+                            y=df['0']['adj'][df['0']['nsellers']:].index,
+                            z=df['0']['adj'][df['0']['nsellers']:],
                             hovertemplate='<b>%{z}</b><extra></extra>',
-                            ids=df['id'],
+                            ids=df['0']['id'][1], 
                             showlegend=False,
                             coloraxis='coloraxis1'
                             ),
@@ -69,9 +127,9 @@ class Animate:
                          )
         self.fig.add_trace(
                         go.Scatter(
-                            x=df['pos'][:,0],
-                            y=df['pos'][:,1],
-                            ids=ndata[2],
+                            x=df['0']['npos'][0],
+                            y=df['0']['npos'][1],
+                            ids=df['0']['id'][1], 
                             showlegend=False,
                             mode='markers',
                             ),
@@ -80,10 +138,9 @@ class Animate:
                         )
         self.fig.add_trace(
                         go.Scatter3d(
-                            x=pos[:,0],
-                            y=pos[:,1],
-                            z=pos[:,2],
-                            ids=ndata[2],
+                            x=df['0']['npos'][0],
+                            y=df['0']['npos'][1],
+                            ids=df['0']['id'][1], 
                             showlegend=False,
                             mode='markers',
                             ),
@@ -173,8 +230,8 @@ class Animate:
         coloraxis = {'colorscale':'magma'}
         coloraxis1 = {'colorscale':'viridis'}
     
-        MAX_X = nsellers+nbuyers
-        MAX_Y = max(ndata[2])
+        MAX_X = max(df['0']['id'][1])
+        MAX_Y = max(df['0']['price'][1])
  
         self.fig.update_layout(height=900, showlegend=False,  updatemenus=updatemenus, sliders=[sliders], margin=margin)
         self.frames = self.fig['frames']
@@ -208,55 +265,35 @@ class Animate:
                     'method': 'animate'
                     } for k in keys]
                     )
-
-        raw_frames = [df[k] for k in keys]
-        nodemat = [[eval(rf['nodes'][key]) for key in rf['nodes']] for rf in raw_frames]
-        ndata = [np.array([
-                    [node['type'] for node in nodes],
-                    [node['price'] for node in nodes],
-                    [node['demand'] for node in nodes],
-                    [node['value'] for node in nodes],
-                ], dtype=object) for nodes in nodemat]
-        pos = [np.array([node['pos'] for node in nodes], dtype=object)
-                    for nodes in nodemat]
-        color = [np.array([node['color'] for node in nodes], dtype=object)
-                    for nodes in nodemat]
-        nbuyers = list(ndata[0][0]).count('buyer')
-        nsellers = list(ndata[0][0]).count('seller')
-        print(nsellers)
-        index = [rf['adj'].index for rf in raw_frames]
-        mat = [rf['adj'] for rf in raw_frames]
-
         frames = tuple(
                     [dict( 
                         name=k,
                         data=[
                             go.Contour(
-                                z=np.array(mat[k][index[k][nsellers]:index[k][-1]]),
-                                ids=ndata[k][2],
+                                x=df[k]['id'], 
+                                y=df[k]['price'],
+                                z=df[k]['price'],
+                                hovertext=df[k]['price'],
+                                hovertemplate='<b>%{hovertext}</b><br>price=%{y}<extra></extra>',
+                                ids=df[k]['id'],
                                 showlegend=False,
-                            ),
-                            go.Scatter(
-                                x=pos[k][:,0],
-                                y=pos[k][:,1],
-                                ids=ndata[k][2],
-                                showlegend=False,
-                                mode='markers',
                             ),
                             go.Scatter3d(
-                                x=pos[k][:,0],
-                                y=pos[k][:,1],
-                                z=pos[k][:,2],
-                                ids=ndata[k][2],
+                                x=df[k]['npos'].T[0],
+                                y=df[k]['npos'].T[1],
+                                z=df[k]['npos'].T[2],
+                                text=df[k]['id'],
+                                hovertext=df[k]['id'],
+                                hovertemplate='<b>%{hovertext}</b><extra></extra>',
+                                ids=df[k]['id'], 
                                 showlegend=False,
-                                mode='markers',
                                 ),
                             ],
                         traces=[n for n in range(self.ntraces)]
-                        ) for k in range(len(raw_frames))]
+                        ) for k in keys]
                         )
-        MAX_X = nbuyers+nsellers+2
-        MAX_Y = max([max(ndata[k][1]) for k in range(len(raw_frames))])
+        MAX_X = max([max(df[k]['id'][1]) for k in keys])
+        MAX_Y = max([max(df[k]['price'][1]) for k in keys])+2
         self.fig['frames'] += frames
         self.fig['layout']['updatemenus'][0]['buttons'][0]['args'] = args
         self.fig['layout']['sliders'][0]['steps'] += steps 

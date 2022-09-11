@@ -28,44 +28,26 @@ class Auctioneer(Auction):
     def save_frame(self):
         ts = round(time.time()-self.start_time,2),
         nodes = sorted(self.node_list(), key=lambda x: x.id)
+
         df = pd.Series({
                         'f' : self.fnum,
-                        'ts' : ts,
                         str(self.fnum) : {
+                            'ts' : ts,
                             'nbuyers': self.nbuyers(),
                             'nsellers': self.nsellers(),
-                            'price': np.array([
-                                            [[
-                                                v.price for v in self.buyer_list(seller)
-                                                ] for seller in self.seller_list()
-                                            ],
-                                            [v.price for v in self.node_list()],
-                                            [v.price for v in self.seller_list()],
-                                            [v.price for v in self.buyer_list()]
-                                        ], dtype=object),
-                            'id': [
-                                    [[
-                                        str(v.id) for v in self.buyer_list(seller)
-                                        ] for seller in self.seller_list()
-                                    ],
-                                    [str(v.id) for v in self.node_list()],
-                                    [str(v.id) for v in self.seller_list()],
-                                    [str(v.id) for v in self.buyer_list()]
-                                ],
- 
+                            'buyers': np.array([v.id for v in self.buyer_list()]),
+                            'sellers': np.array([v.id for v in self.seller_list()]),
+                            'nodes': {str(node.id): str(node) for node in nodes},
+                            'demand': np.array([v.demand for v in nodes]),
+                            'value': np.array([v.value for v in nodes]),
+                            'price': np.array([v.price for v in nodes]),
+                            'id': np.array([v.id for v in nodes]),
+                            'pos': np.array([v.pos for v in nodes], dtype=object),
+                            'color': np.array([v.color for v in nodes], dtype=object),
                             'adj': nx.to_pandas_adjacency(self.G),
                             'edges': nx.to_pandas_edgelist(self.G),
-                            'npos' : np.array(
-                                            [v.pos for v in nodes], 
-                                            dtype=object
-                                            ),
-                            'epos' : np.array([(
-                                            u.pos, v.pos
-                                            ) for u, v in self.G.edges()
-                                          ], dtype=object
-                                        )
-                            }, 
-                        })
+                            } 
+                    })
         self.fnum+=1
         if self.df.empty:
             self.df = df
@@ -76,17 +58,26 @@ class Auctioneer(Auction):
     def run_local_auction(self, seller):
         node_list = self.buyer_list(seller) 
         seller.price = self.calculate_market_price(seller, node_list)
-        
+        bid_history=[] 
         for buyer in node_list:
             if len(self.node_list(buyer.inv_filter, buyer)) < 2:
-                node_list.remove(buyer)
+                #node_list.remove(buyer)
                 print("SKIPPING BUYER", buyer)
+                continue
+            bid = self.calculate_consistent_bid(
+                                            buyer, 
+                                            self.seller_list(buyer), 
+                                            self.buyer_list(buyer)
+                                            )
+            bid_history.append(bid)
+        '''
         pool = mp.Pool(mp.cpu_count())
         pool_params = [( 
                     buyer, 
                     self.seller_list(buyer), 
                     self.buyer_list(buyer)
                   ) for buyer in node_list]
+        print("HERE", type(self.seller_list(buyer)[0]))
         try:
             bid_history = pool.starmap(
                                     self.calculate_consistent_bid, 
@@ -96,7 +87,8 @@ class Auctioneer(Auction):
             pool.terminate()
             exit()
         pool.close()
-        
+        '''        
+
         winner = self.second_price_winner(seller)
         #profit = winner.price - seller.price 
 
@@ -129,6 +121,7 @@ class Auctioneer(Auction):
                 continue
             auction = self.run_local_auction(seller)
             
+            '''
             pool = mp.Pool(mp.cpu_count())
             pool_params = [(
                         seller, 
@@ -143,7 +136,7 @@ class Auctioneer(Auction):
                 pool.terminate()
                 exit()
             pool.close()
-
+            '''
         end_time = time.thread_time()
 
         return self.df

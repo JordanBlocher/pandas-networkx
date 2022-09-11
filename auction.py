@@ -27,6 +27,7 @@ class Auction:
         self.update_params('seller')        
 
         Node.ids = [n for n in range(1,params['nnodes']+1)]
+        Node.id = params['nnodes']
         nodes = [Node(
                     params['seller']
                     ) for n in range(params['nsellers'])
@@ -86,11 +87,16 @@ class Auction:
 
     def add_node(self, node, other_node=None):
         max_sample = min(
-                        len(self.node_list(node.inv_filter)),
+                        len(self.node_list(
+                                    self.inv_type_filter(node.type)
+                                        )
+                        ),
                         params['g_max']
                         )
         neighbors = rsample(
-                            self.node_list(node.inv_filter),
+                            self.node_list(
+                                        self.inv_type_filter(node.type)
+                                        ),
                             max_sample
                             )
         if other_node:
@@ -184,7 +190,6 @@ class Auction:
     
     def do_layout(self):
         global params
-        print(self.node_list())
         rocket = sns.color_palette('rocket', n_colors=self.nnodes()+1)
         mako = sns.color_palette('mako', n_colors=self.nnodes()+1)
         winter = sns.color_palette('winter', n_colors=self.nnodes()+1)
@@ -209,8 +214,8 @@ class Auction:
             node.color = winter[node.id-self.nsellers()]
         for node in self.node_list():
             node.pos = [
-                        fix_pos[node][0], 
-                        fix_pos[node][1], 
+                        round(fix_pos[node][0],2), 
+                        round(fix_pos[node][1],2), 
                         params['auction_round']
                         ]
 
@@ -241,6 +246,12 @@ class Auction:
             return self.seller_filter
         else:
             return self.buyer_filter
+
+    def inv_type_filter(self, ntype):
+        if ntype == 'seller':
+            return self.buyer_filter
+        else:
+            return self.seller_filter
 
     def print_auction(self):
         for seller in self.seller_list():

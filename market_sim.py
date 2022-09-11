@@ -16,20 +16,24 @@ from dash import html
 from dash.dependencies import Input, Output
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from signal import pthread_kill, SIGTSTP
 import seaborn as sns
 
 
 def get_new_data():
     global start_time
+    n=1
     while True:
         try:
             df = do_round(start_time)
             t = round(time.time()-start_time,2)
             print('t=',t)
             time.sleep(.1)
+            f = open('data'+str(n)+'.csv', 'w')
+            f.write(df.to_csv())
+            f.close()
+            n+=1
         except KeyboardInterrupt:
-            pthread_kill(executor, SIGTSTP)
+            executer.stop_all()
             exit()
 
 def do_round(start_time):
@@ -38,6 +42,7 @@ def do_round(start_time):
     fig = animation.plot_update(df)
     print_round()
     auction_round += 1
+    return df
 
 def print_round():
     global auction_round, nbuyers, nsellers
@@ -124,6 +129,7 @@ def make_layout():
         [
         html.Div(
             [
+                html.Br(),
                 html.Label('nbuyers', style={'text-align': 'right'}),
                 dcc.Slider(
                     id='n-buyers',
@@ -161,6 +167,10 @@ nbuyers = 7
 
 auctioneer = Auctioneer(make_params, start_time)
 df = auctioneer.save_frame()
+f = open('data0.csv', 'w')
+f.write(df.to_csv())
+f.close()
+      
 animation = Animate()
 fig = animation.plot(df)
 
