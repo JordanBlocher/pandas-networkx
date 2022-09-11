@@ -6,47 +6,31 @@ import random
 from termcolor import colored
 import seaborn as sns
 
+#rocket = sns.color_palette('rocket')
+#mako = sns.color_palette('mako')
+#cool = sns.color_palette('cool')
+
+
 class Auction:
 
     G = nx.Graph()
-    pos = None
+
 
     def __init__(self, make_params, start_time): 
         global params, rng
         rng = nx.utils.create_random_state()
-        params = make_params()
         self.make_params = make_params
         self.start_time = start_time
-
         
-        buyer_price = rng.poisson(
-                            params['buyer']['max_price'], 
-                            size=params['nnodes']+5
-                            )
-        seller_price = rng.poisson(
-                            params['buyer']['max_price'], 
-                            size=params['nnodes']+5
-                            )
-        params['buyer']['price'] = buyer_price
-        params['seller']['price'] = seller_price
-        inc_factor = rng.uniform(
-                                params['buyer']['inc'][0], 
-                                params['buyer']['inc'][1], 
-                                size=params['nnodes']+5
-                                ),
-        dec_factor = rng.uniform(
-                                params['buyer']['dec'][0], 
-                                params['buyer']['dec'][1], 
-                                size=params['nnodes']+5
-                                ),
-        params['buyer']['inc_factor'] = inc_factor
-        params['buyer']['dec_factor'] = dec_factor
+        params = self.make_params()
+        self.update_params('buyer')        
+        self.update_params('seller')        
 
+        Node.ids = [n for n in range(1,params['nnodes']+1)]
         nodes = [Node(
                     params['seller']
                     ) for n in range(params['nsellers'])
-                ] + \
-                [Node(
+                ] + [Node(
                     params['buyer']
                     ) for n in range(params['nbuyers'])
                 ]
@@ -63,9 +47,9 @@ class Auction:
                             params['g_max']
                             )
             rand = rsample(  
-                            self.node_list(self.seller_filter),
-                            max_sample
-                            )
+                           self.node_list(self.seller_filter),
+                           max_sample
+                           )
             for other_node in rand:
                 self.G.add_edge(
                                 node, 
@@ -73,8 +57,8 @@ class Auction:
                                 weight = node.price
                                 )
         self.print_auction()
-        self.pos = nx.spring_layout(self.G, dim=3, seed=779)
-      
+        self.do_layout()
+     
 
     def node_view(self, node_filter=None, other_node=None):
         if other_node:
@@ -125,7 +109,6 @@ class Auction:
                             neighbor, 
                             weight=node.price
                             )
-        self.pos = nx.spring_layout(self.G, pos=self.pos, dim=3, seed=779)
 
     def update_auction(self, winner, seller):
         self.update_demand(winner)
@@ -143,38 +126,95 @@ class Auction:
                             )               
     
     def update_demand(self, node):
-        print("UPDATING", node.type, node.id) 
+        global params
         if node in self.G:
             if node.demand == 0:
                 Node.ids.append(node.id)
                 self.G.remove_node(node)
                 new_node = Node(params[node.type]) 
                 self.add_node(new_node)
-                print("ADDING", new_node.type, new_node.id) 
 
-    def update_params(self):
+    def update(self):
         global params
         params = self.make_params()
-        seller = rng.choice(self.seller_list())
-        buyer = rng.choice(self.buyer_list())
-        self.update_nodes(buyer)
-        self.update_nodes(seller)
-     
+        for ntype in ['buyer', 'seller']:
+            params[ntype]['price'] = self.price
+            params[ntype]['inc_factor'] = self.inc_factor
+            params[ntype]['dec_factor'] = self.dec_factor
+            if params['n'+ntype+'s'] - self.nnodes(self.type_filter(ntype)) > 2:
+                node = rng.choice(self.node_list(self.type_filter(ntype)))
+                self.update_params(node.type)
+                self.update_nodes(node)
+        return params
+
+    def update_params(self, ntype):
+        global params
+        self.price = rng.poisson(
+                        params[ntype]['max_price'], 
+                        size=params['nnodes']+10
+                        )
+        params[ntype]['price'] = self.price
+        self.inc_factor = rng.uniform(
+                                params[ntype]['inc'][0], 
+                                params[ntype]['inc'][1], 
+                                size=params['nnodes']+5
+                                ),
+        self.dec_factor = rng.uniform(
+                                params[ntype]['dec'][0], 
+                                params[ntype]['dec'][1], 
+                                size=params['nnodes']+5
+                                ),
+        params[ntype]['inc_factor'] = self.inc_factor
+        params[ntype]['dec_factor'] = self.dec_factor
+
+      
     def update_nodes(self, node):
         global params
         node_filter=node.filter
         ntype=node.type
-        while self.nnodes(node_filter) < params['n'+ntype+'s']:
-            new_node = Node(params[ntype])
-            self.add_node(new_node) 
-            raise("ADDED")
-        while self.nnodes(node_filter) > params['n'+ntype+'s']:
-            choice = rng.choice(self.node_list(node_filter))
-            Node.ids.append(choice.id)
-            self.G.remove_node(choice)
-            raise("LOST")
-
+        cnt = self.nnodes(node_filter) - params['n'+ntype+'s'] - 1
+        for n in range(abs(cnt)):
+            if cnt < 0:
+                new_node = Node(params[ntype])
+                self.add_node(new_node) 
+            else:
+                choice = rng.choice(self.node_list(node_filter))
+                Node.ids.append(choice.id)
+                self.G.remove_node(choice)
     
+    def do_layout(self):
+        global params
+        print(self.node_list())
+        rocket = sns.color_palette('rocket', n_colors=self.nnodes()+1)
+        mako = sns.color_palette('mako', n_colors=self.nnodes()+1)
+        winter = sns.color_palette('winter', n_colors=self.nnodes()+1)
+        cool = sns.color_palette('cool', n_colors=self.nnodes()+1)
+
+
+        fix_pos = {}
+        n = 0
+        for node in self.seller_list():
+            fix_pos[node] = (n, 0)
+            node.color = rocket[node.id]
+            n += 2
+        pos = nx.spring_layout(
+                            self.G, 
+                            pos=fix_pos, 
+                            fixed=self.seller_list(), 
+                            scale=2, 
+                            dim=2, 
+                            seed=79)
+        for node in self.buyer_list():
+            fix_pos[node] = pos[node]
+            node.color = winter[node.id-self.nsellers()]
+        for node in self.node_list():
+            node.pos = [
+                        fix_pos[node][0], 
+                        fix_pos[node][1], 
+                        params['auction_round']
+                        ]
+
+
     def nnodes(self, node_filter=None):
         return len(self.node_list(node_filter))
 
@@ -195,6 +235,12 @@ class Auction:
 
     def seller_filter(self, node):
         return node.type == 'seller'
+
+    def type_filter(self, ntype):
+        if ntype == 'seller':
+            return self.seller_filter
+        else:
+            return self.buyer_filter
 
     def print_auction(self):
         for seller in self.seller_list():
@@ -234,3 +280,6 @@ def rsample(x, n):
                     random.randint(2,n)
                     )
     return [x[z] for z in u]
+
+
+

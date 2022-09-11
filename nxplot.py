@@ -12,65 +12,79 @@ import networkx as nx
 import numpy as np
 
 sns.set()
+rocket = sns.color_palette('rocket', as_cmap=True)
+mako = sns.color_palette('mako', as_cmap=True)
+winter = sns.color_palette('winter', as_cmap=True)
+cool = sns.color_palette('cool', as_cmap=True)
 
 
 class Animate:
 
     fig = None
     num_frames = 0
+    ntraces = 0
 
     def __init__(self):
         self.fig = sp.make_subplots(
                                     rows=2, 
                                     cols=2, 
-                                    subplot_titles = ('Subplot (1,1)', '', 'Subplot(1,2)', 'Subplot(1,3)'),
+                                    column_widths=[1, 1],
+                                    row_heights=[1, 1],
+                                    subplot_titles = ('', '', '', ''),
                                     specs=[
-                                            [{'colspan':2},{}],
-                                            [{},{'type': 'surface'}]
-                                        ]
+                                            [{'type': 'contour', 'colspan':2},{}],
+                                            [{'type': 'scatter'},{'type': 'scatter3d'}]
+                                        ],
                                     )
 
     def plot(self, df):
+        print(df['0']['id'][0])
+        print(df['0']['id'][1])
+        print(df['0']['price'][1])
+        print(df['0']['adj'],'\n')
+        print(df['0']['adj'].values[df['0']['nsellers']:,:], '\n')
+        print(df['0']['adj'].values[df['0']['nsellers']:,:df['0']['nsellers']], '\n')
 
         self.fig.add_trace(
-                        go.Bar(
-                            x=df['0']['id'], 
-                            y=df['0']['price'],
-                            hovertext=df['0']['price'],
-                            hovertemplate='<b>%{hovertext}</b><extra></extra>',
-                            ids=df['0']['id'], 
-                            xaxis='x1', 
-                            yaxis='y1',
-                            marker=dict(color=df['0']['color'])
+                        go.Contour(
+                            x=df['0']['adj'].index,
+                            y=df['0']['adj'].index[df['0']['nsellers']:],
+                            z=df['0']['adj'].values[df['0']['nsellers']:,:],
+                            hovertemplate='<b>%{z}</b><extra></extra>',
+                            showlegend=False,
+                            coloraxis='coloraxis1'
                             ),
                          row=1, 
                          col=1
                          )
-
         self.fig.add_trace(
-                        go.Heatmap(
-                            z=df['0']['adj'].values,
-                            hovertext=df['0']['adj'].values,
-                            hovertemplate='<b>%{hovertext}</b><extra></extra>',
-                            ids=df['0']['id'], 
+                        go.Scatter(
+                            x=df['0']['npos'].T[0],
+                            y=df['0']['npos'].T[1],
+                            text=df['0']['id'][1],
+                            hovertemplate='<b>%{text}</b><extra></extra>',
+                            ids=df['0']['id'][1], 
+                            showlegend=False,
+                            mode='markers',
                             ),
                          row=2, 
                          col=1
-                         )
-
+                        )
         self.fig.add_trace(
                         go.Scatter3d(
                             x=df['0']['npos'].T[0],
                             y=df['0']['npos'].T[1],
-                            z=df['0']['npos'].T[2],
-                            hovertext=df['0']['id'],
-                            hovertemplate='<b>%{hovertext}</b><extra></extra>',
-                            ids=df['0']['id'], 
+                            text=df['0']['id'][1],
+                            hovertemplate='<b>%{ids}</b><extra></extra>',
+                            ids=df['0']['id'][1], 
+                            showlegend=False,
+                            mode='markers',
                             ),
                          row=2, 
                          col=2
                          )
-
+        self.ntraces = 3
+ 
         keys = [df['f']]
         self.num_frames += len(keys) 
 
@@ -112,14 +126,20 @@ class Animate:
             )]
 
         xaxis1 = {
-                'anchor': 'y1', 
+                'anchor': 'x1', 
                 'range': [1, len(df['0']['id'])], 
                 }
         yaxis1 = {
-                'anchor': 'x1', 
-                'range': [1,  max(df['0']['price'])+2], 
+                'anchor': 'y1', 
                 }
-        
+        xaxis2 = {
+                'anchor': 'x2', 
+                'range': [-1, 1], 
+                }
+        yaxis2 = {
+                'anchor': 'y2', 
+                'range': [-1, 1], 
+                }
         sliders = {'active': 0,
                    'currentvalue': {
                                 'font': {'size': 16}, 
@@ -140,7 +160,8 @@ class Animate:
                                 'fromcurrent': True, 
                                 'transition': {
                                       'duration': 0, 
-                                      'easing': 'linear'
+                                      'easing': 'linear',
+                                      'order': 'traces first'
                                 }
                         }],
                         'label': k, 
@@ -155,17 +176,24 @@ class Animate:
                     'y': 0,
                     'yanchor': 'top'
                 }
-    
 
-        #self.fig.update_xaxes(xaxis)
-        #self.fig.update_yaxes(yaxis)
-        self.fig.update_layout(height=900, updatemenus=updatemenus, sliders=[sliders])
+        margin = {'l': 5, 'r': 5, 't': 15, 'b': 5}
+        coloraxis = {'colorscale':'magma'}
+        coloraxis1 = {'colorscale':'viridis'}
+    
+        MAX_X = max(df['0']['id'][1])
+        MAX_Y = max(df['0']['price'][1])
+ 
+        self.fig.update_xaxes(xaxis1, xaxis2)
+        self.fig.update_yaxes(yaxis1, yaxis2)
+        self.fig.update_layout(height=900, showlegend=False,  updatemenus=updatemenus, sliders=[sliders], margin=margin)
         self.frames = self.fig['frames']
         return self.fig
 
 
     def plot_update(self, df):
         keys = np.array(df['f'].values, dtype=str)
+        print(keys)
         args  = tuple(
                     [[f'{k}' for k in keys],
                     dict(
@@ -194,38 +222,55 @@ class Animate:
                     [dict( 
                         name=k,
                         data=[
-                            go.Bar(
+                            go.Contour(
                                 x=df[k]['id'], 
                                 y=df[k]['price'],
+                                z=df[k]['price'],
                                 hovertext=df[k]['price'],
                                 hovertemplate='<b>%{hovertext}</b><br>price=%{y}<extra></extra>',
                                 ids=df[k]['id'],
-                                xaxis='x1', 
-                                yaxis='y1'),
-                            go.Heatmap(
-                                z=df[k]['adj'].values,
-                                ),
+                                showlegend=False,
+                            ),
                             go.Scatter3d(
                                 x=df[k]['npos'].T[0],
                                 y=df[k]['npos'].T[1],
                                 z=df[k]['npos'].T[2],
+                                text=df[k]['id'],
+                                hovertext=df[k]['id'],
+                                hovertemplate='<b>%{hovertext}</b><extra></extra>',
+                                ids=df[k]['id'], 
+                                showlegend=False,
                                 ),
                             ],
-                        traces=[0,1,2]
+                        traces=[n for n in range(self.ntraces)]
                         ) for k in keys]
                         )
-        MAX_X = max([len(df[k]['id']) for k in keys])
-        MAX_Y = max([max(df[k]['price']) for k in keys])
+        MAX_X = max([max(df[k]['id'][1]) for k in keys])
+        MAX_Y = max([max(df[k]['price'][1]) for k in keys])+2
         self.fig['frames'] += frames
         self.fig['layout']['updatemenus'][0]['buttons'][0]['args'] = args
         self.fig['layout']['sliders'][0]['steps'] += steps 
-        #self.fig['layout']['xaxis']['range'] = [1, MAX_X]
-        #self.fig['layout']['yaxis']['range'] = [1, MAX_Y]
-        self.fig.update_layout()
-        self.fig.update()
+        self.fig['layout']['xaxis']['range'] = [1, MAX_X]
+        self.fig['layout']['yaxis']['range'] = [1, MAX_Y]
+        xaxis1 = {
+                'anchor': 'x1', 
+                'range': [1, MAX_X]
+                }
+        yaxis1 = {
+                'anchor': 'y1', 
+                'range': [1, MAX_Y]
+                }
+        xaxis2 = {
+                'anchor': 'x2', 
+                'range': [-1, 1]
+                }
+        yaxis2 = {
+                'anchor': 'y2', 
+                'range': [-1, 1]
+                }
+        self.fig.update_xaxes(xaxis1, xaxis2)
+        self.fig.update_yaxes(yaxis1, yaxis2)
         return self.fig
-
- 
 
 
     def show(self):

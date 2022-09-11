@@ -28,25 +28,42 @@ class Auctioneer(Auction):
     def save_frame(self):
         ts = round(time.time()-self.start_time,2),
         nodes = sorted(self.node_list(), key=lambda x: x.id)
-        self.pos = nx.spring_layout(self.G, dim=3, seed=779)
         df = pd.Series({
-                            'f' : self.fnum,
-                            'ts' : ts,
-                str(self.fnum) : {
-                            'price': np.array([v.price for v in nodes]), 
-                            'id': np.array([v.id for v in nodes]),
-                            'color': [sns.palettes.color_palette(
-                                                            [v.color]
-                                                            ) for v in nodes
+                        'f' : self.fnum,
+                        'ts' : ts,
+                        str(self.fnum) : {
+                            'nbuyers': self.nbuyers(),
+                            'nsellers': self.nsellers(),
+                            'price': np.array([
+                                            [[
+                                                v.price for v in self.buyer_list(seller)
+                                                ] for seller in self.seller_list()
+                                            ],
+                                            [v.price for v in self.node_list()],
+                                            [v.price for v in self.seller_list()],
+                                            [v.price for v in self.buyer_list()]
+                                        ], dtype=object),
+                            'id': [
+                                    [[
+                                        str(v.id) for v in self.buyer_list(seller)
+                                        ] for seller in self.seller_list()
                                     ],
+                                    [str(v.id) for v in self.node_list()],
+                                    [str(v.id) for v in self.seller_list()],
+                                    [str(v.id) for v in self.buyer_list()]
+                                ],
+ 
                             'adj': nx.to_pandas_adjacency(self.G),
                             'edges': nx.to_pandas_edgelist(self.G),
-                            'npos' : np.array([self.pos[v] for v in nodes]),
+                            'npos' : np.array(
+                                            [v.pos for v in nodes], 
+                                            dtype=object
+                                            ),
                             'epos' : np.array([(
-                                                self.pos[u], self.pos[v]
-                                                ) for u, v in self.G.edges()
-                                              ]
-                                            )
+                                            u.pos, v.pos
+                                            ) for u, v in self.G.edges()
+                                          ], dtype=object
+                                        )
                             }, 
                         })
         self.fnum+=1
@@ -98,14 +115,14 @@ class Auctioneer(Auction):
         global params, auction_round
           
         auction_round = round_num
-        params = self.make_params()
+        params = self.update()
 
         self.df = pd.Series()
         self.auctions_history.append([])
         self.T = nx.Graph()
 
         for seller in self.seller_list():
-            self.print_auction()
+            #self.print_auction()
             if seller not in self.G:
                 continue
             if len(self.buyer_list(seller)) < 1:
