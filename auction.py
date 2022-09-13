@@ -11,37 +11,27 @@ import seaborn as sns
 #cool = sns.color_palette('cool')
 
 
-class Auction:
+class Auction(nx.Graph):
 
-    G = nx.Graph()
+    start_time = 0
+    make_params = None
 
+    def __init__(self):
+        super().__init__()
 
-    def __init__(self, make_params, start_time): 
+    def make_graph(self, make_params, start_time):
         global params, rng
         rng = nx.utils.create_random_state()
         self.make_params = make_params
         self.start_time = start_time
-        
+  
         params = self.make_params()
         self.update_params('buyer')        
         self.update_params('seller')        
-
-        Node.ids = [n for n in range(1,params['nnodes']+1)]
-        Node.id = params['nnodes']+1
-        nodes = [Node(
-                    params['seller']
-                    ) for n in range(params['nsellers'])
-                ] + [Node(
-                    params['buyer']
-                    ) for n in range(params['nbuyers'])
-                ]
-        for node in nodes:
-            self.G.add_node(
-                            node, 
-                            value=node.private_value, 
-                            color=node.color, 
-                            demand=node.demand
-                            )
+        for ntype in ['buyer', 'seller']:
+            for node in range(params['n'+ntype+'s']):
+                new_node = Node(params[ntype])
+                self.add_node(new_node)
         for node in self.node_list(self.buyer_filter):
             max_sample = min(
                             len(self.node_list(self.seller_filter)),
@@ -52,20 +42,16 @@ class Auction:
                            max_sample
                            )
             for other_node in rand:
-                self.G.add_edge(
-                                node, 
-                                other_node, 
-                                weight = node.price
-                                )
-        pos = nx.spectral_layout(self.G, dim=3)
+                self.add_edge((node,other_node))
+        pos = nx.spectral_layout(self, dim=3)
         for node in self.node_list():
             node.pos = pos[node] 
      
 
     def node_view(self, node_filter=None, other_node=None):
-        if other_node:
+        if other_node != None:
             g = nx.ego_graph(
-                        self.G, 
+                        self, 
                         other_node, 
                         1, # number of hops
                         False # include center node
@@ -73,9 +59,9 @@ class Auction:
             if node_filter:
                 g = nx.subgraph_view(g, filter_node=node_filter)
         elif node_filter:
-            g = nx.subgraph_view(self.G, filter_node=node_filter)
+            g = nx.subgraph_view(self, filter_node=node_filter)
         else:
-            g = self.G
+            g = self
         return g      
 
     def node_list(self, node_filter=None, other_node=None):
@@ -86,36 +72,37 @@ class Auction:
                                   ).nodes
                     )
 
-    def add_node(self, node, other_node=None):
-        max_sample = min(
-                        len(self.node_list(
-                                    self.inv_type_filter(node.type)
-                                        )
-                        ),
-                        params['g_max']
-                        )
+    def compose_node(self, node, other_node=None):
         neighbors = rsample(
-                            self.node_list(
-                                        self.inv_type_filter(node.type)
-                                        ),
-                            max_sample
-                            )
+                        self.node_list(
+                                self.inv_type_filter(node.type)
+                                ),
+                                params['g_max']
+                        )
         if other_node:
             neighbors.append(other_node)
         g = nx.star_graph([node] + neighbors)
-        self.G.add_node(
-                        node, 
-                        value=node.private_value, 
-                        color=node.color, 
-                        demand=node.demand
-                        )
-        self.G = nx.compose(self.G,g) 
+        self.add_node(node)
+        self = nx.compose(self,g) 
         for neighbor in neighbors:
-            self.G.add_edge(
-                            node, 
-                            neighbor, 
-                            weight=node.price
-                            )
+            self.put_edge((node,neighbor))
+
+    def add_node(self, node):
+        super().add_node( node,
+                price=node.price,
+                value=node.private_value, 
+                color=node.color, 
+                demand=node.demand,
+                pos=node.pos,
+                type=node.type
+                )
+
+    def add_edge(self, edge):
+        super().add_edge(
+                    edge[0], 
+                    edge[1], 
+                    weight = edge[0].price
+                    )
 
     def update_auction(self, winner, seller):
         self.update_demand(winner)
@@ -126,20 +113,16 @@ class Auction:
         '''
         for buyer in self.buyer_list():
             if len(self.seller_list(buyer)) < 2:
-                self.G.add_edge(
-                            buyer,
-                            rng.choice(self.seller_list()),
-                            weight=buyer.price 
-                            )               
+                self.put_edge(buyer, rng.choice(self.seller_list()))
     
     def update_demand(self, node):
         global params
-        if node in self.G:
+        if node in self.nodes:
             if node.demand == 0:
                 Node.ids.append(node.id)
-                self.G.remove_node(node)
+                self.remove_node(node)
                 new_node = Node(params[node.type]) 
-                self.add_node(new_node)
+                self.compose_node(new_node)
 
     def update(self):
         global params
@@ -183,11 +166,11 @@ class Auction:
         for n in range(abs(cnt)):
             if cnt < 0:
                 new_node = Node(params[ntype])
-                self.add_node(new_node) 
+                self.compose_node(new_node) 
             else:
                 choice = rng.choice(self.node_list(node_filter))
                 Node.ids.append(choice.id)
-                self.G.remove_node(choice)
+                self.remove_node(choice)
     
     def nnodes(self, node_filter=None):
         return len(self.node_list(node_filter))

@@ -1,4 +1,42 @@
 
+
+# --- Begin_myhack ---
+# All this code should replace original `pos=nx.spring_layout(graph)`
+import numpy as np
+pos = nx.circular_layout(graph)   # replaces your original pos=...
+# prep center points (along circle perimeter) for the clusters
+angs = np.linspace(0, 2*np.pi, 1+len(colors))
+repos = []
+rad = 3.5     # radius of circle
+for ea in angs:
+    if ea > 0:
+        #print(rad*np.cos(ea), rad*np.sin(ea))  # location of each cluster
+        repos.append(np.array([rad*np.cos(ea), rad*np.sin(ea)]))
+for ea in pos.keys():
+    #color = 'black'
+    posx = 0
+    if ea in nodes_by_color['green']:
+        #color = 'green'
+        posx = 0
+    elif ea in nodes_by_color['royalblue']:
+        #color = 'royalblue'
+        posx = 1
+    elif ea in nodes_by_color['red']:
+        #color = 'red'
+        posx = 2
+    elif ea in nodes_by_color['orange']:
+        #color = 'orange'
+        posx = 3
+    elif ea in nodes_by_color['cyan']:
+        #color = 'cyan'
+        posx = 4
+    else:
+        pass
+    #print(ea, pos[ea], pos[ea]+repos[posx], color, posx)
+    pos[ea] += repos[posx]
+# --- End_myhack ---
+
+
     '''
     def price_plot_old(self, df):
         #self.df = self.df.append(df)

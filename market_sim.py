@@ -14,7 +14,6 @@ import plotly.subplots as sp
 import plotly.graph_objects as go
 import plotly.colors as cm 
 from models import Clock
-from node import Node
 
 sns.set()
 cscale1 = 'portland'
@@ -29,16 +28,10 @@ class MarketSim(Auctioneer):
     ntraces = 0
     end_time = 0
 
-    def do_round(self):
-        start = time.time()
-        df,clock = self.run_auctions(self.auction_round)
-        self.end_time = time.time()
-        self.plot_clock(clock, 1, 1)
-        self.plot_update(df)
-        self.auction_round += 1
-        return self.fig 
+    def __init__(self):
+        super().__init__()
 
-    def start(self):
+    def make_fig(self):
         self.fig = sp.make_subplots(
                                     rows=3, 
                                     cols=2, 
@@ -60,7 +53,15 @@ class MarketSim(Auctioneer):
 
         df = self.save_frame()
         self.plot(df)
-        return self.fig
+
+    def do_round(self):
+        start = time.time()
+        df,clock = self.run_auctions(self.auction_round)
+        self.end_time = time.time()
+        self.plot_clock(clock, 1, 1)
+        self.plot_update(df)
+        self.auction_round += 1
+        return self.fig 
 
     def read_clock(self, clock, ts):
         params = self.make_params()
@@ -157,11 +158,8 @@ class MarketSim(Auctioneer):
                     range = [-1, max([v.id for v in buyers])],
                     tickvals = [v.id for v in clock.inf_nodes()],
                     label = 'Winners', 
-                    values = np.array([
-                                [-1 for v in self.seller_list(buyer)
-                                ] for buyer in buyers], dtype=object
-                            ).flatten()
-                ),
+                    values = nbrs
+                 ),
                dict(
                     range = [-1, max([v.id for v in buyers])],
                     tickvals = np.array([
@@ -169,7 +167,7 @@ class MarketSim(Auctioneer):
                                     ] for n in clock.inf_nodes()], dtype=object
                                 ).flatten(),
                     label = 'Influence', 
-                    values =
+                    values = inf
                 )
                ]) 
                ), row=row, col=col)
@@ -188,7 +186,6 @@ class MarketSim(Auctioneer):
         self.add_scatter3d(nodes, ids, cscale1, row=2, col=1)
         self.add_lines(edges, ids, cscale1, row=2, col=1)
         self.add_contour(mat, ids, cscale2,row=2, col=2)
-
         
         keys = [df['f']]
         self.num_frames += len(keys) 

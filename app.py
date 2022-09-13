@@ -114,8 +114,10 @@ noise = False
 nrounds = 10
 
 start_time = time.time()     
-sim = MarketSim(make_params, start_time)
-fig = sim.start()
+sim = MarketSim()
+sim.make_graph(make_params, start_time)
+sim.make_fig()
+fig = sim.fig
 
 app.layout = make_layout
 

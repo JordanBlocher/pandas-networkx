@@ -1,39 +1,39 @@
 import numpy as np
 import networkx as nx
 
-from node import Node
 import time
 
+class nxNode(nx.Graph):
 
-class Clock:
+    id = 0
 
-    T = nx.Graph()
-    t = nx.Graph()
+    def __init__(self):
+        super().__init__()
+        self.id = nxNode.id
+        nxNode.id += 1
+
+    def __repr__(self):
+        return str(self.id)
+
+class Clock(nxNode):
+
     ts = 0
-    neighbors = None
     auction_round = 0
 
     def __init__(self, seller, winner, neighbors, start_time, auction_round):
-        self.seller = seller
-        self.winner = winner
-        winner.neighbors = neighbors
+        super().__init__(start_time)
+        self.add_edge(winner, seller)
+        [self.add_edge(winner, n) for n in neighbors]
         self.ts = round(time.time()-start_time,4)
         self.auction_round = auction_round
-        self.t = nx.Graph()
-        self.t.add_node(seller, weight=self.ts) 
-        self.t.add_node(winner, weight=self.ts)
-        self.t.add_edge(winner, seller, weight=self.ts)
-        Clock.T.add_node(self, weight=self.ts)
-        for node in [n for n in Clock.T.nodes]: 
-            if type(node) == Node:
-                continue
+        Clock.add_node(self, weight=seller)
+        for node in [n for n in Clock.nodes]: 
             if self.ts - node.ts < 0.5:
-                for node_ns in neighbors:
-                    if node_ns in node.t.nodes:
-                        if Clock.T.has_edge(winner, node):
-                            #Clock.T.add_edge(self, node, weight=node.ts)
-                        Clock.T.add_edge(winner, node, weight=self.ts)
+                for n in neighbors:
+                    if n in nx.neighbors(node):
+                        Clock.add_edge(self, node, weight=winner)
     
+
     def time_node_filter(node):
         return type(node) == Clock
         
@@ -61,7 +61,6 @@ class Clock:
                     base_nodes.append(node_n)
         return base_nodes
  
-
     def __repr__(self):
         return str(self.ts)
 

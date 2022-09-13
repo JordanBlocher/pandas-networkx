@@ -24,18 +24,21 @@ class Auctioneer(Auction):
     df = pd.Series()
     fnum=0
 
+    def __init__(self):
+        super().__init__()
+
     def save_frame(self):
         ts = round(time.time()-self.start_time,4),
         nodes = sorted(self.node_list(), key=lambda x: x.id)
    
-        adj_mat = nx.to_pandas_adjacency(self.G)
-        edges = nx.to_pandas_edgelist(self.G)
+        adj_mat = nx.to_pandas_adjacency(self)
+        edges = nx.to_pandas_edgelist(self)
         df = pd.Series({
                         'f' : self.fnum,
                         'ts' : ts,
                         str(self.fnum) : {
-                            'adj': nx.to_pandas_adjacency(self.G),
-                            'edges': nx.to_pandas_edgelist(self.G),
+                            'adj': nx.to_pandas_adjacency(self),
+                            'edges': nx.to_pandas_edgelist(self),
                             },
                     })
         self.fnum+=1
@@ -60,24 +63,6 @@ class Auctioneer(Auction):
                                             self.buyer_list(buyer)
                                             )
             bid_history.append(bid)
-        '''
-        pool = mp.Pool(mp.cpu_count())
-        pool_params = [( 
-                    buyer, 
-                    self.seller_list(buyer), 
-                    self.buyer_list(buyer)
-                  ) for buyer in node_list]
-        print("HERE", type(self.seller_list(buyer)[0]))
-        try:
-            bid_history = pool.starmap(
-                                    self.calculate_consistent_bid, 
-                                    pool_params
-                                    )
-        except KeyboardInterrupt:
-            pool.terminate()
-            exit()
-        pool.close()
-        '''        
 
         winner = self.second_price_winner(seller)
         #profit = winner.price - seller.price 
@@ -101,32 +86,15 @@ class Auctioneer(Auction):
 
         self.df = pd.Series()
         self.auctions_history.append([])
-        self.T = nx.Graph()
 
         for seller in self.seller_list():
             #self.print_auction()
-            if seller not in self.G:
+            if seller not in self:
                 continue
             if len(self.buyer_list(seller)) < 1:
                 continue
             auction = self.run_local_auction(seller)
             
-            '''
-            pool = mp.Pool(mp.cpu_count())
-            pool_params = [(
-                        seller, 
-                        self.buyer_list(seller)
-                      ) for seller in self.seller_list()]
-            try:
-                market_prices = pool.starmap(
-                                            self.calculate_market_price, 
-                                            pool_params
-                                            )
-            except KeyboardInterrupt:
-                pool.terminate()
-                exit()
-            pool.close()
-            '''
         end_time = time.thread_time()
 
         return self.df, Clock
@@ -155,12 +123,7 @@ class Auctioneer(Auction):
                     buyer.price = round(
                                     buyer.price * self.dec_factor[buyer.id],
                                     2)
-        [self.G.add_edge(
-                        buyer, 
-                        node, 
-                        weight=buyer.price
-                        ) for node in node_list]
-
+        [self.add_edge((buyer, node)) for node in node_list]
         self.save_frame()
         return buyer
  
@@ -175,13 +138,9 @@ class Auctioneer(Auction):
         else:
             print('Taking first price')
             winner.price = sorted_buyers[0].price
-        seller.price = sorted_buyers[0].price
-        self.G.add_edge(winner, seller, weight=winner.price)
-        [self.G.add_edge(
-                        winner, 
-                        buyer, 
-                        weight=winner.price
-                        ) for buyer in self.buyer_list(seller)]
+        seller.private_value = sorted_buyers[0].price
+        self.add_edge((winner, seller))
+        [self.add_edge((winner, buyer)) for buyer in self.buyer_list(seller)]
 
         Clock(seller, winner, self.buyer_list(winner), self.start_time, auction_round)
         seller.demand -= 1
