@@ -5,6 +5,7 @@ from node import Node
 from market_sim import MarketSim
 from auctioneer import Auctioneer
 import networkx as nx
+import time
 
 from app import make_params
 

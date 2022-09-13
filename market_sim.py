@@ -27,11 +27,12 @@ class MarketSim(Auctioneer):
     num_frames = 0
     fig = None
     ntraces = 0
-    tn = pd.Series()
+    end_time = 0
 
     def do_round(self):
+        start = time.time()
         df,clock = self.run_auctions(self.auction_round)
-        self.read_clock(clock, 1)
+        self.end_time = time.time()
         self.plot_clock(clock, 1, 1)
         self.plot_update(df)
         self.auction_round += 1
@@ -40,17 +41,17 @@ class MarketSim(Auctioneer):
     def start(self):
         self.fig = sp.make_subplots(
                                     rows=3, 
-                                    cols=3, 
-                                    column_widths=[1, 1, 1],
+                                    cols=2, 
+                                    column_widths=[1, 1],
                                     row_heights=[1, 1, 1],
                                     subplot_titles = ('', '', '', ''),
                                     specs=[
                                             [{'type': 'parcoords','colspan': 2},
-                                             {},{}],
+                                             {}],
                                             [{'type': 'surface'},
-                                             {},{}],
+                                             {}],
                                             [{'type': 'surface'},
-                                             {},{}],
+                                             {}],
                                         
                                         ],
                                         horizontal_spacing = 0.1,
@@ -61,16 +62,27 @@ class MarketSim(Auctioneer):
         self.plot(df)
         return self.fig
 
-    def read_clock(self, clock, level):
+    def read_clock(self, clock, ts):
+        params = self.make_params()
         print('\n\n',clock.T)
-        cf = nx.to_pandas_edgelist(clock.T)
         for c in clock.T.nodes:
             if type(c) == Node:
                 continue
-            cf = cf.append(nx.to_pandas_edgelist(c.t))
+            cf = nx.to_pandas_edgelist(c.t)
+            print(cf)
+        
+        cf = nx.to_pandas_edgelist(clock.T)
+        levels = [cf.loc[ cf['weight'] == node.ts] for node in clock.time_nodes()]
         print(cf)
-        g = cf.groupy('weight')
-        print(g.groups)
+        print(levels)
+        print(levels[0]['weight'])
+
+        values = dict(
+                        nodes = [v for v in clock.base_nodes()],
+                        auction = [v.ts for v in clock.time_nodes()],
+                        inf = [v for v in clock.inf_nodes()],
+                        neighbors = [v.neighbors for v in clock.inf_nodes()]
+                    )
         return cf
 
     def print_round(self):
@@ -86,27 +98,81 @@ class MarketSim(Auctioneer):
         sys.stderr.flush()
 
     def plot_clock(self, clock, row, col):
-        cf = self.read_clock(clock,1)
+        params = self.make_params()
+        buyers = self.buyer_list()
+        sellers = self.seller_list()
+        inf = np.array([
+                        [-1 for v in self.seller_list(buyer)
+                        ] for buyer in buyers], dtype=object
+                    ).flatten()
+        values = [v.id for v in clock.inf_nodes()]
+        rand = np.random.randint(0,len(inf), size=len(values))
+        for i in range(len(values)):
+            inf[rand[i]] = values[i]
+        nbrs = np.array([
+                    [-1 for v in self.seller_list(buyer)
+                    ] for buyer in buyers], dtype=object
+                ).flatten()
+        values = np.array([
+                        [v.id for v in n.neighbors
+                        ] for n in clock.inf_nodes()], dtype=object
+                    ).flatten(),
+        rand = np.random.randint(0,len(nbrs), size=len(values))
+        for i in range(len(values)):
+            nbrs[rand[i]] = values[i]
         self.fig.add_trace(go.Parcoords(
             line = dict(
-                        color = [v.color for v in u.t.nodes],
-                        colorscale = cscale,
+                        color = np.array([
+                                    [buyer.color for v in self.seller_list(buyer)
+                                    ] for buyer in buyers]
+                                ).flatten(),
+                        colorscale = cscale1,
                     ),
-            dimensions = [[
+            dimensions = list([
                 dict(
-                    label = c.ts, 
-                    values = [v.id for v in c.t.nodes]),
+                    range = [1, self.nbuyers()],
+                    label = 'Auction', 
+                    values = np.array([
+                                [buyer.id for v in self.seller_list(buyer)
+                                ] for buyer in buyers], dtype=object
+                            ).flatten()
+                ),
                 dict(
+                    range = [1, params['seller']['max_price']],
                     label = 'Price', 
-                    values = [v.price for u,v in c.t.edges]),
+                    values = np.array([
+                                    [v.price for v in self.seller_list(buyer)
+                                    ] for buyer in buyers], dtype=object
+                            ).flatten()
+                ),
                 dict(
-                    label = 'Winner', 
-                    values = [v.id for u,v in c.t.edges]),
-                dict(
-                    label = 'Demand', 
-                    values = [v.demand for v in c.t.nodes]),
-                ] for u,v in clock.T.edges]
-            ), row=row, col=col)
+                    range = [1, params['buyer']['max_price']],
+                    label = 'Bid', 
+                    values = np.array([
+                                    [buyer.price for v in self.seller_list(buyer)
+                                    ] for buyer in buyers], dtype=object
+                                    ).flatten()
+                ),
+               dict(
+                    range = [-1, max([v.id for v in buyers])],
+                    tickvals = [v.id for v in clock.inf_nodes()],
+                    label = 'Winners', 
+                    values = np.array([
+                                [-1 for v in self.seller_list(buyer)
+                                ] for buyer in buyers], dtype=object
+                            ).flatten()
+                ),
+               dict(
+                    range = [-1, max([v.id for v in buyers])],
+                    tickvals = np.array([
+                                    [v.id for v in n.neighbors
+                                    ] for n in clock.inf_nodes()], dtype=object
+                                ).flatten(),
+                    label = 'Influence', 
+                    values =
+                )
+               ]) 
+               ), row=row, col=col)
         self.ntraces+=1
  
     def plot(self, df):

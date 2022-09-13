@@ -28,6 +28,7 @@ class Node:
         else:
             self.type = 'seller'
         self.pos = [self.id*20, self.color*params['flow'], 0]
+        self.neighbors = None
 
     def filter(self, node):
         return self.type == node.type

@@ -165,6 +165,7 @@ class Auctioneer(Auction):
         return buyer
  
     def second_price_winner(self, seller):
+        global auction_round
         buyer_list = self.buyer_list(seller)
         sorted_buyers = sorted(buyer_list, key=lambda x: x.price, reverse=True)
         winner = sorted_buyers[0]
@@ -182,7 +183,7 @@ class Auctioneer(Auction):
                         weight=winner.price
                         ) for buyer in self.buyer_list(seller)]
 
-        Clock(seller, winner, self.buyer_list(winner), self.nsellers(), self.start_time)
+        Clock(seller, winner, self.buyer_list(winner), self.start_time, auction_round)
         seller.demand -= 1
         winner.demand += 1
         return winner
