@@ -27,7 +27,7 @@ class Auction:
         self.update_params('seller')        
 
         Node.ids = [n for n in range(1,params['nnodes']+1)]
-        Node.id = params['nnodes']
+        Node.id = params['nnodes']+1
         nodes = [Node(
                     params['seller']
                     ) for n in range(params['nsellers'])
@@ -57,8 +57,9 @@ class Auction:
                                 other_node, 
                                 weight = node.price
                                 )
-        self.print_auction()
-        self.do_layout()
+        pos = nx.spectral_layout(self.G, dim=3)
+        for node in self.node_list():
+            node.pos = pos[node] 
      
 
     def node_view(self, node_filter=None, other_node=None):
@@ -188,38 +189,6 @@ class Auction:
                 Node.ids.append(choice.id)
                 self.G.remove_node(choice)
     
-    def do_layout(self):
-        global params
-        rocket = sns.color_palette('rocket', n_colors=self.nnodes()+1)
-        mako = sns.color_palette('mako', n_colors=self.nnodes()+1)
-        winter = sns.color_palette('winter', n_colors=self.nnodes()+1)
-        cool = sns.color_palette('cool', n_colors=self.nnodes()+1)
-
-
-        fix_pos = {}
-        n = 0
-        for node in self.seller_list():
-            fix_pos[node] = (n, 0)
-            node.color = rocket[node.id]
-            n += 2
-        pos = nx.spring_layout(
-                            self.G, 
-                            pos=fix_pos, 
-                            fixed=self.seller_list(), 
-                            scale=2, 
-                            dim=2, 
-                            seed=79)
-        for node in self.buyer_list():
-            fix_pos[node] = pos[node]
-            node.color = winter[node.id-self.nsellers()]
-        for node in self.node_list():
-            node.pos = [
-                        round(fix_pos[node][0],2), 
-                        round(fix_pos[node][1],2), 
-                        params['auction_round']
-                        ]
-
-
     def nnodes(self, node_filter=None):
         return len(self.node_list(node_filter))
 

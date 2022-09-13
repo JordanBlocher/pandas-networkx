@@ -22,31 +22,21 @@ class Auctioneer(Auction):
 
     auctions_history=[]
     df = pd.Series()
-    T = nx.Graph()
     fnum=0
 
     def save_frame(self):
-        ts = round(time.time()-self.start_time,2),
+        ts = round(time.time()-self.start_time,4),
         nodes = sorted(self.node_list(), key=lambda x: x.id)
-
+   
+        adj_mat = nx.to_pandas_adjacency(self.G)
+        edges = nx.to_pandas_edgelist(self.G)
         df = pd.Series({
                         'f' : self.fnum,
+                        'ts' : ts,
                         str(self.fnum) : {
-                            'ts' : ts,
-                            'nbuyers': self.nbuyers(),
-                            'nsellers': self.nsellers(),
-                            'buyers': np.array([v.id for v in self.buyer_list()]),
-                            'sellers': np.array([v.id for v in self.seller_list()]),
-                            'nodes': {str(node.id): str(node) for node in nodes},
-                            'demand': np.array([v.demand for v in nodes]),
-                            'value': np.array([v.value for v in nodes]),
-                            'price': np.array([v.price for v in nodes]),
-                            'id': np.array([v.id for v in nodes]),
-                            'pos': np.array([v.pos for v in nodes], dtype=object),
-                            'color': np.array([v.color for v in nodes], dtype=object),
                             'adj': nx.to_pandas_adjacency(self.G),
                             'edges': nx.to_pandas_edgelist(self.G),
-                            } 
+                            },
                     })
         self.fnum+=1
         if self.df.empty:
@@ -93,7 +83,7 @@ class Auctioneer(Auction):
         #profit = winner.price - seller.price 
 
         auction = self.save_state(
-                                  ts = round(time.time()-self.start_time,2),
+                                  ts = round(time.time()-self.start_time,4),
                                   winner=winner,
                                   seller=seller,
                                   bid_history=bid_history
@@ -139,7 +129,7 @@ class Auctioneer(Auction):
             '''
         end_time = time.thread_time()
 
-        return self.df
+        return self.df, Clock
 
     def calculate_consistent_bid(self, buyer, node_list, neighbors):
         global params
@@ -184,13 +174,13 @@ class Auctioneer(Auction):
         else:
             print('Taking first price')
             winner.price = sorted_buyers[0].price
-
+        seller.price = sorted_buyers[0].price
         self.G.add_edge(winner, seller, weight=winner.price)
         [self.G.add_edge(
                         winner, 
                         buyer, 
                         weight=winner.price
-                        ) for buyer in self.buyer_list(winner)]
+                        ) for buyer in self.buyer_list(seller)]
 
         Clock(seller, winner, self.buyer_list(winner), self.nsellers(), self.start_time)
         seller.demand -= 1

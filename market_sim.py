@@ -2,197 +2,410 @@ import numpy as np
 import pandas as pd
 import sys
 import random
+import seaborn as sns
 from termcolor import colored
 import time
+import networkx as nx
 
 from auctioneer import Auctioneer
 from auction import Auction
-from nxplot import NXPlot, Animate
-import networkx as nx
 
-import dash
-from dash import dcc
-from dash import html
-from dash.dependencies import Input, Output
+import plotly.subplots as sp
+import plotly.graph_objects as go
+import plotly.colors as cm 
+from models import Clock
+from node import Node
 
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-import seaborn as sns
+sns.set()
+cscale1 = 'portland'
+cscale2 = 'plasma'
 
 
-def get_new_data():
-    global start_time
-    n=1
-    while True:
-        try:
-            df = do_round(start_time)
-            t = round(time.time()-start_time,2)
-            print('t=',t)
-            time.sleep(.1)
-            f = open('data'+str(n)+'.csv', 'w')
-            f.write(df.to_csv())
-            f.close()
-            n+=1
-        except KeyboardInterrupt:
-            executer.stop_all()
-            exit()
-
-def do_round(start_time):
-    global auction_round, fig
-    df = auctioneer.run_auctions(auction_round)
-    fig = animation.plot_update(df)
-    print_round()
-    auction_round += 1
-    return df
-
-def print_round():
-    global auction_round, nbuyers, nsellers
-    print('round', auction_round, 
-          ': nbuyers=', nbuyers, 
-          ', nsellers=', nsellers,
-          ', nframes=', len(animation.fig['frames']))
-    #if len(sys.argv) > 1:
-    #    for auction in auctioneer.auctions_history[auction_round]:
-    #        print(auction, '\t')
-    sys.stdout.flush()
-    sys.stderr.flush()
-   
-   
-
-app = dash.Dash(__name__)
-executor = ThreadPoolExecutor(max_workers=1)
-  
-
-def make_params():
-    global start_time, nsellers, nbuyers, auction_round
+class MarketSim(Auctioneer):
 
     auction_round = 0
-    rng = nx.utils.create_random_state()
+    num_frames = 0
+    fig = None
+    ntraces = 0
+    tn = pd.Series()
 
-    option = False
-    noise = False
-    nnodes = nbuyers+nsellers
-    max_price = 15
-    noise_low = .2, #nOTE: TRY NEGATIVE VALUES
-    noise_high = 1.2
+    def do_round(self):
+        df,clock = self.run_auctions(self.auction_round)
+        self.read_clock(clock, 1)
+        self.plot_clock(clock, 1, 1)
+        self.plot_update(df)
+        self.auction_round += 1
+        return self.fig 
 
-    buyer_init_factor = rng.uniform(.5, .8) # bid under
-    buyer_max_price = 15
-    buyer_max_quantity = 10
-    buyer_inc = [.9, 1] # 1.2 1.5
-    buyer_dec = [0.8, 9] #0.3 0.7
+    def start(self):
+        self.fig = sp.make_subplots(
+                                    rows=3, 
+                                    cols=3, 
+                                    column_widths=[1, 1, 1],
+                                    row_heights=[1, 1, 1],
+                                    subplot_titles = ('', '', '', ''),
+                                    specs=[
+                                            [{'type': 'parcoords','colspan': 2},
+                                             {},{}],
+                                            [{'type': 'surface'},
+                                             {},{}],
+                                            [{'type': 'surface'},
+                                             {},{}],
+                                        
+                                        ],
+                                        horizontal_spacing = 0.1,
+                                        vertical_spacing = 0.05
+                                    )
 
-    seller_init_factor = rng.uniform(1.2, 1.5) # bid over
-    seller_max_price = 12
-    seller_max_quantity = 10
-    seller_inc = [.1, 1]
-    seller_dec = [.1, 1]
+        df = self.save_frame()
+        self.plot(df)
+        return self.fig
 
-    return dict(
-    auction_round = auction_round,
-    option = option,
-    noise = noise,
-    nsellers = nsellers,
-    nbuyers = nbuyers,
-    # nnodes, g_mod, and nbuyers/sellers are not independent, 
-    # there should be an optimal
-    # formula for EQ
-    nnodes = nnodes,
-    g_max = min(nbuyers, nsellers)-2,
-    noise_factor = dict(
-                        low = noise_low,
-                        high = noise_high,
-        ),
-    buyer = dict(
-            init_factor = buyer_init_factor,
-            max_price = buyer_max_price,
-            max_quantity = buyer_max_quantity,
-            inc = buyer_inc,
-            dec = buyer_dec,
-            flow = -1,
-            price = []
-            ),
-    seller = dict(
-            init_factor = seller_init_factor,
-            max_price = seller_max_price,
-            max_quantity = seller_max_quantity,
-            inc = seller_inc,
-            dec = seller_dec,
-            flow = 1,
-            price = []
-            )
-        )
+    def read_clock(self, clock, level):
+        print('\n\n',clock.T)
+        cf = nx.to_pandas_edgelist(clock.T)
+        for c in clock.T.nodes:
+            if type(c) == Node:
+                continue
+            cf = cf.append(nx.to_pandas_edgelist(c.t))
+        print(cf)
+        g = cf.groupy('weight')
+        print(g.groups)
+        return cf
 
-def make_layout():
-    global fig, params
-    params = make_params()
-    return html.Div(
-        [
-        html.Div(
-            [
-                html.Br(),
-                html.Label('nbuyers', style={'text-align': 'right'}),
-                dcc.Slider(
-                    id='n-buyers',
-                    min=0,
-                    max=100,
-                    value=params['nbuyers'], 
-                    tooltip={'placement': 'bottom'}
-                ),
-                html.Label('nsellers', style={'text-align': 'right'}),
-                dcc.Slider(
-                    id='n-sellers',
-                    min=0,
-                    max=100,
-                    value=params['nsellers'],
-                    tooltip={'placement': 'bottom'}
-                )
-            ],
-            style={'display': 'grid', 'grid-template-columns': '10% 35% 10% 35%'}
-        ),
-        dcc.Graph(
-            id='price', 
-            figure=fig, 
-            animate=True
-        ),
-        html.Br(),
-        html.Div(id='hidden-div')  
-        ])
+    def print_round(self):
+        print('round', self.auction_round, 
+              ': nbuyers=', self.nbuyers(), 
+              ', nsellers=', self.nsellers(),
+              ', nframes=', len(self.fig['frames']))
+        #print(nx.to_pandas_adjacency(auctioneer.G))
+        #if len(sys.argv) > 1:
+        #    for auction in auctioneer.auctions_history[auction_round]:
+        #        print(auction, '\t')
+        sys.stdout.flush()
+        sys.stderr.flush()
 
-global start_time
-auction_round = 0
-start_time = time.time()     
+    def plot_clock(self, clock, row, col):
+        cf = self.read_clock(clock,1)
+        self.fig.add_trace(go.Parcoords(
+            line = dict(
+                        color = [v.color for v in u.t.nodes],
+                        colorscale = cscale,
+                    ),
+            dimensions = [[
+                dict(
+                    label = c.ts, 
+                    values = [v.id for v in c.t.nodes]),
+                dict(
+                    label = 'Price', 
+                    values = [v.price for u,v in c.t.edges]),
+                dict(
+                    label = 'Winner', 
+                    values = [v.id for u,v in c.t.edges]),
+                dict(
+                    label = 'Demand', 
+                    values = [v.demand for v in c.t.nodes]),
+                ] for u,v in clock.T.edges]
+            ), row=row, col=col)
+        self.ntraces+=1
+ 
+    def plot(self, df):
+        rf = df['0']
+        mat = rf['adj']
+        edges = rf['edges']
+        nodes = [node for node in mat.axes[0]]
+        ids = sorted([node.id for node in nodes])
 
-nsellers = 5
-nbuyers = 7
+        #nodekv = dict([(node.id, node.__dict__()) for node in nodes])
 
-auctioneer = Auctioneer(make_params, start_time)
-df = auctioneer.save_frame()
-f = open('data0.csv', 'w')
-f.write(df.to_csv())
-f.close()
+        self.add_parcoords(nodes, cscale1, row=1, col=1)
+        self.add_scatter3d(nodes, ids, cscale1, row=2, col=1)
+        self.add_lines(edges, ids, cscale1, row=2, col=1)
+        self.add_contour(mat, ids, cscale2,row=2, col=2)
+
+        
+        keys = [df['f']]
+        self.num_frames += len(keys) 
+
+        updatemenus, sliders = self.make_menus(keys)
+
+        margin = {'l': 10, 'r': 10, 't': 15, 'b': 5}
+    
+        self.fig.update_layout(
+                                height=600, 
+                                showlegend=False,  
+                                updatemenus=updatemenus, 
+                                sliders=[sliders], 
+                                margin=margin
+                                )
+        self.frames = self.fig['frames']
+
+    def add_parcoords(self, nodes, cscale, row, col):
+        
+        self.fig.add_trace(go.Parcoords(
+            line = dict(
+                        color = [v.color for v in nodes],
+                        colorscale = cscale,
+                    ),
+            dimensions = list([
+                dict(
+                    label = 'Node', 
+                    values = [v.id for v in nodes]),
+                dict(
+                    label = 'Price', 
+                    values = [v.price for v in nodes]),
+                dict(
+                    label = 'Value', 
+                    values = [v.private_value for v in nodes]),
+                dict(
+                    label = 'Demand', 
+                    values = [v.demand for v in nodes]),
+                ])
+            ), row=row, col=col)
+        self.ntraces+=1
+
+    def add_scatter_plots(self):
+        self.add_scatter3d(nodes, edges, ids, cscale1, row=1, col=1)
+        corr = mat.corr()
+        links = corr.stack().reset_index()
+        links.columns = ['b', 's', 'v']
+        corr_edges = links.loc[ (links['v'] > 0) & (links['b'] != links['s']) ]
+        G = nx.from_pandas_edgelist(corr_edges, 'b', 's')
+        pos = nx.spectral_layout(G, dim=3)
+        for v in nodes:
+            v.pos = pos[v]
+        self.add_scatter3d(nodes, corr_edges, ids, cscale1, row=1, col=2)
+        
+    def add_scatter3d(self, nodes, ids, cscale, row, col):
+        self.fig.add_trace(go.Scatter3d(
+                            x=[v.pos[0] for v in nodes],
+                            y=[v.pos[1] for v in nodes],
+                            z=[v.pos[2] for v in nodes],
+                            hovertext=[v.type for v in nodes],
+                            ids=ids,
+                            hovertemplate='<b>%{hovertext}</b><extra></extra>',
+                            showlegend=False,
+                            mode = 'markers',
+                            #surfacecolor = 'darkorchid',
+                            surfaceaxis = 2,
+                            marker = {  
+                                        'color': [v.color for v in nodes],
+                                        'colorscale': cscale,
+                                        'size' : 5
+                                    },
+                            ), row=row, col=col)
+        self.ntraces+=1
+
+    def add_lines(self, edges, ids, cscale, row, col):
+        edge_pos = np.array([(u.pos, v.pos) for u,v,z in edges.values])
+        for v in edge_pos:
+            self.fig.add_trace(go.Scatter3d(
+                                x=v.T[0],
+                                y=v.T[1],
+                                z=v.T[2],
+                                mode='lines',
+                                line = {  
+                                        'colorscale': cscale1,
+                                        'width' : 1
+                                    },
+                            ), row=row, col=col)
+            self.ntraces += 1
+
+    def add_surface(self, nodes, edges, ids, cscale, row, col):
+        pos = np.array([[u.pos, v.pos] for u,v,z in edges.values])
+        print([v for v in pos.T[0]])
+        self.fig.add_trace(go.Mesh3d(
+                            x=[v.pos[0] for v in nodes], 
+                            y=[v.pos[1] for v in nodes],
+                            z=[v.pos[2] for v in nodes],
+                            colorscale = cscale1
+                        ), row=row, col=col)
+        self.ntraces += 1
+  
+    def add_contour(self, mat, ids, cscale, row, col):
+        self.fig.add_trace(go.Contour(
+                            x=ids,
+                            y=ids,
+                            z=mat,
+                            hovertemplate='<b>%{z}</b><extra></extra>',
+                            ids=ids,
+                            showlegend=False,
+                            contours = {'coloring': 'heatmap'},
+                            colorscale = cscale2,
+                            line = {'width': 0},
+                            showscale=False
+                            ), row=row, col=col)
+        self.ntraces+=1
+    
+    def update_scatter_plots(self):
+        corr = dict([(k,mat[k].corr()) for k in keys])
+        links = [(k,corr[k].stack().reset_index()) for k in keys]
+        for k,link in links:
+            link.columns = ['b', 's', 'v']
+        corr_edges = dict([(k,link.loc[(link['v'] > 0) & (link['b'] != link['s'])]) for k,link in links])
+        
+        corr_nodes = dict([(k,corr_edges[k].drop(columns='v').stack()) for k in keys])
       
-animation = Animate()
-fig = animation.plot(df)
+    def plot_update(self, df):
+        keys = np.array(df['f'].values, dtype=str)
+        
+        args, steps = self.update_menus(keys)
 
+        raw_frames = [(k,df[k]) for k in keys]
+        mat = dict([(k,rf['adj']) for k,rf in raw_frames])
+        edges = dict([(k,rf['edges']) for k,rf in raw_frames])
+        nodes = dict([(k,[node for node in mat[k].axes[0]]) for k in keys])
+        ids = dict([(k,sorted([node.id for node in nodes[k]])) for k in keys])
 
-app.layout = make_layout
+        nodes = dict([(k,edges[k].drop(columns='weight').stack()) for k in keys])
 
-@app.callback(
-    Output('hidden-div', 'children'),[
-    Input('n-buyers', 'value'), Input('n-sellers', 'value')
-    ]
-)
-def update_output(n, m):
-    global nbuyers, nsellers
-    nbuyers = n
-    nsellers = m
+        frames = tuple(
+                    [dict( 
+                        name=k,
+                        data=[
+                            go.Scatter3d(
+                                x=[v.pos[0] for v in nodes[k]],
+                                y=[v.pos[1] for v in nodes[k]],
+                                z=[v.pos[2] for v in nodes[k]],
+                                ids=ids[k],
+                                hovertext=[v.type for v in nodes[k]],
+                                marker = {  
+                                        'color': [v.color for v in nodes[k]],
+                                    },
+                            ),
+                            go.Scatter3d(
+                                x=[v.pos[0] for v in nodes[k]],
+                                y=[v.pos[1] for v in nodes[k]],
+                                z=[v.pos[2] for v in nodes[k]],
+                                ids=ids[k]
+                            ),
+                            go.Contour(
+                                x=ids[k],
+                                y=ids[k],
+                                z=mat[k],
+                                ids=ids[k]
+                            ),
+                            go.Contour(
+                                x=ids[k],
+                                y=ids[k],
+                                ids=ids[k],
+                                z=mat[k].corr(),
+                            ),
+                            ],
+                        traces=[n for n in range(self.ntraces)]
+                        ) for k in keys]
+                        )
+        self.fig['frames'] += frames
+        self.fig['layout']['updatemenus'][0]['buttons'][0]['args'] = args
+        self.fig['layout']['sliders'][0]['steps'] += steps 
 
+    def update_menus(self, keys):
+        args  = tuple(
+                    [[f'{k}' for k in keys],
+                    dict(
+                        frame=dict(duration=500, redraw=True),
+                        transition=dict(duration=0),
+                        easing='linear',
+                        fromcurrent=True,
+                        mode='immediate'
+                        )
+                    ])
+        steps = tuple(
+                    [{'args': [
+                        [k], {
+                            'frame':{'duration': 0, 'redraw': True}, 
+                            'mode':'immediate', 
+                            'fromcurrent': True, 
+                            'transition':{
+                                'duration': 0, 
+                                'easing': 'linear'
+                            }}],
+                    'label': k, 
+                    'method': 'animate'
+                    } for k in keys]
+                    )
+        return args, steps
 
-# Execute with parameters
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        executor.submit(get_new_data)
-        app.run_server(debug=True, use_reloader=False) 
-    else:
-        get_new_data()
+    def make_menus(self, keys):
 
+        updatemenus = [
+            dict(
+                type='buttons',
+                buttons=[
+                dict(
+                    label='Play',
+                    method='animate',
+                    args=[
+                        [f'{k}' for k in keys],
+                        dict(
+                            frame=
+                            dict(duration=500, redraw=True),
+                            transition=dict(duration=0),
+                            easing='linear',
+                            fromcurrent=True,
+                            mode='immediate'
+                        )]
+                    ),
+              dict(
+                label='Pause',
+                method='animate',
+                args=[
+                    [None],
+                    dict(
+                        frame=dict(duration=0, redraw=False),
+                         transition=dict(duration=0),
+                         mode='immediate'
+                         )
+                     ]
+                 )],
+            direction='left',
+            pad=dict(r=10, t=25),
+            showactive=True, 
+            x=0.1, y=0, 
+            xanchor='right', yanchor='top'
+            )]
+
+        sliders = {'active': 0,
+                   'currentvalue': {
+                                'font': {'size': 16}, 
+                                'prefix': 'ts=', 
+                                'visible': True, 
+                                'xanchor': 'right'
+                    },
+                    'len': 0.9, 
+                    'pad': {'b': 10, 't': 25},
+                    'steps': [{
+                        'args': [
+                            [k], {
+                                'frame': {
+                                      'duration': 0, 
+                                      'redraw': True
+                                }, 
+                                'mode': 'immediate', 
+                                'fromcurrent': True, 
+                                'transition': {
+                                      'duration': 0, 
+                                      'easing': 'linear',
+                                      'order': 'traces first'
+                                }
+                        }],
+                        'label': k, 
+                        'method': 'animate'
+                        } for k in keys
+                    ],
+                    'transition': {'duration': 0, 
+                                    'easing': 'linear'
+                    },
+                    'x': 0.1,
+                    'xanchor': 'left',
+                    'y': 0,
+                    'yanchor': 'top'
+                }
+
+        return updatemenus, sliders
+
+    def show(self):
+        self.fig.show()
+
+       
+   
