@@ -24,11 +24,13 @@ class Auctioneer(Auction):
     df = pd.Series()
     fnum=0
 
-    def __init__(self):
-        super().__init__()
+    def save_frame(self, start_time=0):
 
-    def save_frame(self):
-        ts = round(time.time()-self.start_time,4),
+        d = nx.to_dict_of_dicts(self)
+        p=pd.DataFrame()
+        p.from_dict({'cat':['meaow', 'purr'],'dog':['woow', 'brk']}, orient='index')
+        print(p)
+        ts = round(time.time()-start_time,4),
         nodes = sorted(self.node_list(), key=lambda x: x.id)
    
         adj_mat = nx.to_pandas_adjacency(self)
@@ -78,10 +80,9 @@ class Auctioneer(Auction):
         return auction
                
 
-    def run_auctions(self, round_num):
+    def run_auctions(self, rnum):
         global params, auction_round
-          
-        auction_round = round_num
+        auction_round = rnum
         params = self.update()
 
         self.df = pd.Series()
@@ -117,18 +118,18 @@ class Auctioneer(Auction):
             if len(neighbors) > 1:
                 if buyer.price <  min([node.price for node in neighbors]):
                     buyer.price = round(
-                                    buyer.price * self.inc_factor[buyer.id],
+                                    buyer.price * params['buyer']['inc'][buyer.id],
                                     2)
                 elif buyer.price >  max([node.price for node in neighbors]):
                     buyer.price = round(
-                                    buyer.price * self.dec_factor[buyer.id],
+                                    buyer.price * params['buyer']['dec'][buyer.id],
                                     2)
         [self.add_edge((buyer, node)) for node in node_list]
         self.save_frame()
         return buyer
  
     def second_price_winner(self, seller):
-        global auction_round
+        global auction_round, params
         buyer_list = self.buyer_list(seller)
         sorted_buyers = sorted(buyer_list, key=lambda x: x.price, reverse=True)
         winner = sorted_buyers[0]
@@ -142,9 +143,8 @@ class Auctioneer(Auction):
         self.add_edge((winner, seller))
         [self.add_edge((winner, buyer)) for buyer in self.buyer_list(seller)]
 
-        Clock(seller, winner, self.buyer_list(winner), self.start_time, auction_round)
-        seller.demand -= 1
-        winner.demand += 1
+        Clock(seller, winner, self.buyer_list(winner), params['start_time'])
+
         return winner
 
     def calculate_market_price(self, seller, node_list):

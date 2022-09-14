@@ -6,38 +6,71 @@ import inspect
 np.set_printoptions(precision=2)
 
 
+
+class _CachedPropertyResetterNode:
+    def __set__(self, obj, value):
+        od = obj.__dict__
+        od["_node"] = value
+        if "nodes" in od:
+            del od["nodes"]
+
 class Node(nx.Graph):
     
     id = 0
     ids = []
-    price = 0
-    demand = 0
-    private_value = 0
-    color = 0
-    pos = 0
-    type = None
 
-    def __init__(self, params):
-        nx.Graph().__init__()
+    '''
+    _node = _CachedPropertyResetterNode()
+
+    node_dict_factory = dict
+    node_attr_dict_factory = dict
+    adjlist_outer_dict_factory = dict
+    adjlist_inner_dict_factory = dict
+    edge_attr_dict_factory = dict
+    graph_attr_dict_factory = dict
+
+    def __init__(self):
+        
+        self.graph = self.graph_attr_dict_factory()  
+        self._node = self.node_dict_factory()  
+        self._adj = self.adjlist_outer_dict_factory()  
+    '''
+
+    def build(self, params):
         rng = nx.utils.create_random_state()
         if len(Node.ids) > 1:
-            self.id = rng.choice(Node.ids)
+            n_id = rng.choice(Node.ids)
             Node.ids.remove(self.id)
         else:
-            self.id = Node.id
             Node.id +=1
+            n_id = Node.id
         
-        self.demand = rng.randint(1, params['max_quantity']) * params['flow']
-        self.private_value = 0
-        self.price = round(params['init_factor'] * params['price'][self.id], 2)
-        self.color = int(self.price)*params['flow']
+        demand = rng.randint(1, 
+                            params['max_quantity']
+                            ) * params['flow']
+        private_value = 0
+        price = round(
+                        params['init_factor'
+                        ] * params['price'][n_id], 2)
+        color = int(price)*params['flow']
         if params['flow'] < 0:
-            self.type = 'buyer'
+            n_type = 'buyer'
         else:
-            self.type = 'seller'
-        self.pos = [self.id*20, self.color*params['flow'], 0]
+            n_type = 'seller'
+        pos = [n_id*20, color*params['flow'], 0]
+      #  nx.Graph().__init__(id=n_id, demand=demand, 
+       #                     value=private_value, price=price, 
+        #                    color=color, pos=pos, type=n_type
+         #               )
+        self.id = n_id
+        self.demand = demand
+        self.color = color
+        self.private_value = private_value
+        self.price = price
+        self.pos = pos
+        self.type = n_type
 
-    def __dict__(self):
+    def __to_dict__(self):
          return {
                 'demand': self.demand, 
                 'value': self.private_value,

@@ -1,68 +1,51 @@
 import numpy as np
 import networkx as nx
+from node import Node
 
 import time
 
-class nxNode(nx.Graph):
-
-    id = 0
-
-    def __init__(self):
-        super().__init__()
-        self.id = nxNode.id
-        nxNode.id += 1
-
-    def __repr__(self):
-        return str(self.id)
-
-class Clock(nxNode):
+class Clock(nx.Graph):
 
     ts = 0
-    auction_round = 0
+    T = nx.Graph()
 
-    def __init__(self, seller, winner, neighbors, start_time, auction_round):
-        super().__init__(start_time)
-        self.add_edge(winner, seller)
-        [self.add_edge(winner, n) for n in neighbors]
-        self.ts = round(time.time()-start_time,4)
-        self.auction_round = auction_round
-        Clock.add_node(self, weight=seller)
-        for node in [n for n in Clock.nodes]: 
-            if self.ts - node.ts < 0.5:
-                for n in neighbors:
-                    if n in nx.neighbors(node):
-                        Clock.add_edge(self, node, weight=winner)
-    
-
-    def time_node_filter(node):
-        return type(node) == Clock
-        
-    def node_filter(node):
-        return type(node) == Node
-
-    def time_nodes():
-        return list(nx.subgraph_view(Clock.T, filter_node=Clock.time_node_filter).nodes)
-
-    def inf_nodes():
-        return list(nx.subgraph_view(Clock.T, filter_node=Clock.node_filter).nodes)
-
-    def base_nodes():
-        base_nodes = []
+    def __init__(self, seller, winner, neighbors, start_time):
+        ts = round(time.time()-start_time,4)
+        nx.Graph.__init__(self,ts=ts, winner=winner, seller=seller)
+        self.ts = ts
+        self.winner = winner
+        self.add_node(seller, weight=ts)
+        self.add_node(winner, weight=ts)
+        self.add_edge(self, seller)
+        [self.winner.add_node(n) for n in neighbors]
+        [self.winner.add_edge(self.winner, n) for n in neighbors]
+        Clock.T.add_node(self, weight=self.ts)
+        print("CLOCK")
+        print(Clock.T.nodes)
+        print(Clock.T.edges)
         for node in [n for n in Clock.T.nodes]: 
             if type(node) == Node:
-                if node not in base_nodes:
-                    base_nodes.append(node)
                 continue
-            for node_b in node.t.nodes:
-                if node_b not in base_nodes:
-                    base_nodes.append(node_b)
-            for node_n in node.t.nodes:
-                if node_n not in base_nodes:
-                    base_nodes.append(node_n)
-        return base_nodes
- 
+            print("node")
+            print(node.nodes)
+            print(node.edges)
+            if ts - node.ts < 0.5:
+                for nb in neighbors:
+                    for np in node:
+                        if np == nb:
+                            if Clock.T.has_edge(self, node):
+                                weight=self.ts
+                            else:
+                                weight=node.ts
+                            self.winner.add_edge(nb, np, weight=weight)
+                            Clock.T.add_edge(self, node, weight=weight)
+                    
     def __repr__(self):
         return str(self.ts)
+
+    def __str__(self):
+        return str(self.ts)
+
 
 class Intersection:
 

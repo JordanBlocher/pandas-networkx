@@ -13,33 +13,23 @@ import seaborn as sns
 
 class Auction(nx.Graph):
 
-    start_time = 0
-    make_params = None
-
-    def __init__(self):
-        super().__init__()
-
-    def make_graph(self, make_params, start_time):
+    def make_graph(self):
         global params, rng
         rng = nx.utils.create_random_state()
-        self.make_params = make_params
-        self.start_time = start_time
-  
         params = self.make_params()
+        self.start_time = params['start_time']
         self.update_params('buyer')        
         self.update_params('seller')        
+
         for ntype in ['buyer', 'seller']:
             for node in range(params['n'+ntype+'s']):
-                new_node = Node(params[ntype])
+                new_node = Node()
+                new_node.build(params[ntype])
                 self.add_node(new_node)
-        for node in self.node_list(self.buyer_filter):
-            max_sample = min(
-                            len(self.node_list(self.seller_filter)),
-                            params['g_max']
-                            )
+        for node in self.node_list(buyer_filter):
             rand = rsample(  
-                           self.node_list(self.seller_filter),
-                           max_sample
+                           self.node_list(seller_filter),
+                           params['g_max']
                            )
             for other_node in rand:
                 self.add_edge((node,other_node))
@@ -75,7 +65,7 @@ class Auction(nx.Graph):
     def compose_node(self, node, other_node=None):
         neighbors = rsample(
                         self.node_list(
-                                self.inv_type_filter(node.type)
+                                inv_type_filter(node.type)
                                 ),
                                 params['g_max']
                         )
@@ -101,10 +91,13 @@ class Auction(nx.Graph):
         super().add_edge(
                     edge[0], 
                     edge[1], 
-                    weight = edge[0].price
+                    weight = edge[0].price,
+                    weight1= edge[1].price,
                     )
 
     def update_auction(self, winner, seller):
+        seller.demand -= 1
+        winner.demand += 1
         self.update_demand(winner)
         self.update_demand(seller)
         '''
@@ -121,29 +114,26 @@ class Auction(nx.Graph):
             if node.demand == 0:
                 Node.ids.append(node.id)
                 self.remove_node(node)
-                new_node = Node(params[node.type]) 
+                new_node = Node()
+                new_node.build(params[node.type]) 
                 self.compose_node(new_node)
 
     def update(self):
         global params
         params = self.make_params()
         for ntype in ['buyer', 'seller']:
-            params[ntype]['price'] = self.price
-            params[ntype]['inc_factor'] = self.inc_factor
-            params[ntype]['dec_factor'] = self.dec_factor
-            if params['n'+ntype+'s'] - self.nnodes(self.type_filter(ntype)) > 2:
-                node = rng.choice(self.node_list(self.type_filter(ntype)))
-                self.update_params(node.type)
-                self.update_nodes(node)
+            if params['n'+ntype+'s']-self.nnodes(type_filter(ntype)) > 2:
+                self.update_params(ntype)
+                self.update_nodes(ntype)
         return params
 
     def update_params(self, ntype):
         global params
-        self.price = rng.poisson(
+        price = rng.poisson(
                         params[ntype]['max_price'], 
                         size=params['nnodes']+10
                         )
-        params[ntype]['price'] = self.price
+        params[ntype]['price'] = price
         self.inc_factor = rng.uniform(
                                 params[ntype]['inc'][0], 
                                 params[ntype]['inc'][1], 
@@ -158,14 +148,14 @@ class Auction(nx.Graph):
         params[ntype]['dec_factor'] = self.dec_factor
 
       
-    def update_nodes(self, node):
+    def update_nodes(self, ntype):
         global params
-        node_filter=node.filter
-        ntype=node.type
+        node_filter=type_filter(ntype)
         cnt = self.nnodes(node_filter) - params['n'+ntype+'s'] - 1
         for n in range(abs(cnt)):
             if cnt < 0:
-                new_node = Node(params[ntype])
+                new_node = Node()
+                new_node.build(params[ntype])
                 self.compose_node(new_node) 
             else:
                 choice = rng.choice(self.node_list(node_filter))
@@ -176,10 +166,10 @@ class Auction(nx.Graph):
         return len(self.node_list(node_filter))
 
     def seller_list(self, node=None):
-        return self.node_list(self.seller_filter, node)
+        return self.node_list(seller_filter, node)
 
     def buyer_list(self, node=None):
-        return self.node_list(self.buyer_filter, node)
+        return self.node_list(buyer_filter, node)
 
     def nbuyers(self):
         return len(self.buyer_list())
@@ -187,23 +177,7 @@ class Auction(nx.Graph):
     def nsellers(self):
         return len(self.seller_list())
 
-    def buyer_filter(self, node):
-        return node.type == 'buyer'
 
-    def seller_filter(self, node):
-        return node.type == 'seller'
-
-    def type_filter(self, ntype):
-        if ntype == 'seller':
-            return self.seller_filter
-        else:
-            return self.buyer_filter
-
-    def inv_type_filter(self, ntype):
-        if ntype == 'seller':
-            return self.buyer_filter
-        else:
-            return self.seller_filter
 
     def print_auction(self):
         for seller in self.seller_list():
@@ -244,5 +218,20 @@ def rsample(x, n):
                     )
     return [x[z] for z in u]
 
+def buyer_filter(node):
+    return node.type == 'buyer'
 
+def seller_filter(node):
+    return node.type == 'seller'
 
+def type_filter(ntype):
+    if ntype == 'seller':
+        return seller_filter
+    else:
+        return buyer_filter
+
+def inv_type_filter(ntype):
+    if ntype == 'seller':
+        return buyer_filter
+    else:
+        return seller_filter

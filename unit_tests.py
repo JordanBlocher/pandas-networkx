@@ -28,7 +28,10 @@ def validate_params():
 
 def test_auction_singleoton(): 
     start_time = time.time()     
-    return MarketSim(make_params, start_time)
+    sim = MarketSim()
+    sim.make_graph(make_params, start_time)
+    sim.make_fig()
+    return sim
 
 def test_add_node(auction, buyer):
     deg = nx.degree(auction.G, buyer)
@@ -41,7 +44,7 @@ def test_add_node(auction, buyer):
 
 # Execute with parameters
 if __name__ == '__main__':
-    validate_params()
+    pass
 
 
 

@@ -15,7 +15,8 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from market_sim import MarketSim
 
 def get_new_data():
-    while True and sim.auction_round < nrounds:
+    global auction_round
+    while True and auction_round < nrounds:
         try:
             df = do_round()
             time.sleep(.1)
@@ -23,9 +24,10 @@ def get_new_data():
             exit()
 
 def do_round():
-    global fig
-    fig = sim.do_round()
+    global fig, auction_round
+    fig = sim.do_round(auction_round)
     sim.print_round()
+    auction_round += 1
     return fig
 
 
@@ -49,7 +51,6 @@ def make_layout():
 def make_params():
     global start_time, nsellers, nbuyers, noise, auction_round
 
-    auction_round = 0
     rng = nx.utils.create_random_state()
 
     option = False
@@ -71,6 +72,7 @@ def make_params():
 
     return dict(
     auction_round = auction_round,
+    start_time = start_time,
     option = option,
     noise = noise,
     nsellers = nsellers,
@@ -104,19 +106,14 @@ def make_params():
             )
         )
 
-def params():
-    return make_params()
-
-
 nbuyers = 7
 nsellers = 5
 noise = False
 nrounds = 10
+auction_round = 0
 
 start_time = time.time()     
-sim = MarketSim()
-sim.make_graph(make_params, start_time)
-sim.make_fig()
+sim = MarketSim(make_params)
 fig = sim.fig
 
 app.layout = make_layout

@@ -14,76 +14,76 @@ import plotly.subplots as sp
 import plotly.graph_objects as go
 import plotly.colors as cm 
 from models import Clock
+from node import Node
 
 sns.set()
 cscale1 = 'portland'
 cscale2 = 'plasma'
 
 
-class MarketSim(Auctioneer):
+class MarketSim:
 
-    auction_round = 0
     num_frames = 0
     fig = None
     ntraces = 0
     end_time = 0
+    auctioneer = Auctioneer()
 
-    def __init__(self):
-        super().__init__()
-
-    def make_fig(self):
+    def __init__(self, make_params):
+        global params, mk
+        params = make_params()
+        mk = self.auctioneer
+        mk.make_params = make_params
+        mk.make_graph()
         self.fig = sp.make_subplots(
-                                    rows=3, 
-                                    cols=2, 
-                                    column_widths=[1, 1],
-                                    row_heights=[1, 1, 1],
-                                    subplot_titles = ('', '', '', ''),
-                                    specs=[
-                                            [{'type': 'parcoords','colspan': 2},
-                                             {}],
-                                            [{'type': 'surface'},
-                                             {}],
-                                            [{'type': 'surface'},
-                                             {}],
-                                        
-                                        ],
-                                        horizontal_spacing = 0.1,
-                                        vertical_spacing = 0.05
-                                    )
+                        rows=3, 
+                        cols=2, 
+                        column_widths=[1, 1],
+                        row_heights=[1, 1, 1],
+                        subplot_titles = ('', '', '', ''),
+                        specs=[
+                                [{'type': 'parcoords','colspan': 2},
+                                 {}],
+                                [{'type': 'surface'},
+                                 {}],
+                                [{'type': 'surface'},
+                                 {}],
+                            
+                            ],
+                            horizontal_spacing = 0.1,
+                            vertical_spacing = 0.05
+                        )
 
-        df = self.save_frame()
-        self.plot(df)
+        df = mk.save_frame(params['start_time'])
+        #self.plot(df)
 
-    def do_round(self):
+    def do_round(self, rnum):
+        global mk
         start = time.time()
-        df,clock = self.run_auctions(self.auction_round)
+        df,clock = mk.run_auctions(rnum)
         self.end_time = time.time()
-        self.plot_clock(clock, 1, 1)
-        self.plot_update(df)
-        self.auction_round += 1
+        self.read_clock(clock, 1)
+        #self.plot_update(df)
+        rnum += 1
         return self.fig 
 
     def read_clock(self, clock, ts):
-        params = self.make_params()
+        global mk
+        params = mk.make_params()
+        print('\n\n',clock.nodes)
         print('\n\n',clock.T)
-        for c in clock.T.nodes:
-            if type(c) == Node:
-                continue
-            cf = nx.to_pandas_edgelist(c.t)
-            print(cf)
+        for c in clock.T:
+            cf = nx.to_pandas_edgelist(c)
+            print(c.nodes)
+            print(c.edges)
+            print(cf.T)
         
         cf = nx.to_pandas_edgelist(clock.T)
-        levels = [cf.loc[ cf['weight'] == node.ts] for node in clock.time_nodes()]
+        levels = [cf.loc[ cf['weight'] == node.ts] for node in Clock.T]
         print(cf)
         print(levels)
         print(levels[0]['weight'])
 
-        values = dict(
-                        nodes = [v for v in clock.base_nodes()],
-                        auction = [v.ts for v in clock.time_nodes()],
-                        inf = [v for v in clock.inf_nodes()],
-                        neighbors = [v.neighbors for v in clock.inf_nodes()]
-                    )
         return cf
 
     def print_round(self):
@@ -99,11 +99,14 @@ class MarketSim(Auctioneer):
         sys.stderr.flush()
 
     def plot_clock(self, clock, row, col):
-        params = self.make_params()
-        buyers = self.buyer_list()
-        sellers = self.seller_list()
+        self.read_clock(clock,1)
+        return
+        global mk
+        params = mk.make_params()
+        buyers = mk.buyer_list()
+        sellers = mk.seller_list()
         inf = np.array([
-                        [-1 for v in self.seller_list(buyer)
+                        [-1 for v in mk.seller_list(buyer)
                         ] for buyer in buyers], dtype=object
                     ).flatten()
         values = [v.id for v in clock.inf_nodes()]
