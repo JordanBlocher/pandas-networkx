@@ -53,7 +53,7 @@ class Node(nx.Graph):
                         params['init_factor'
                         ] * params['price'][n_id], 2)
         color = int(price)*params['flow']
-        if params['flow'] < 0:
+        if params['flow'] < 0: # negative flow wants to send out 
             n_type = 'buyer'
         else:
             n_type = 'seller'

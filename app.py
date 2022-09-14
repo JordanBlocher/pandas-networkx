@@ -92,7 +92,7 @@ def make_params():
             max_quantity = buyer_max_quantity,
             inc = buyer_inc,
             dec = buyer_dec,
-            flow = -1,
+            flow = 1,
             price = []
             ),
     seller = dict(
@@ -101,7 +101,7 @@ def make_params():
             max_quantity = seller_max_quantity,
             inc = seller_inc,
             dec = seller_dec,
-            flow = 1,
+            flow = -1,
             price = []
             )
         )

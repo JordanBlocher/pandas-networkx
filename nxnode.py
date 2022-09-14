@@ -11,6 +11,7 @@ import networkx.convert as convert
 
 class nxNode(nx.Graph):
     
+    id = 0
     node_frame_factory = pd.DataFrame
     node_attr_frame_factory = pd.DataFrame
     edge_attr_frame_factory = pd.DataFrame
@@ -20,7 +21,8 @@ class nxNode(nx.Graph):
    
 
     def __init__(self, incoming_graph_data=None, **attr):
-        
+        nxNode.id += 1
+        self.id = nxNode.id
         self.graph = self.graph_attr_frame_factory()  
         self._node = self.node_frame_factory()  
         self._adj = self.adjlist_outer_frame_factory()  
@@ -29,8 +31,7 @@ class nxNode(nx.Graph):
         self.graph.update(attr)
 
 
-
-    def make_frame(self, nodelist):
+    def make_frame(self, source="buyer", target="seller", nodelist=None, dtype=nxNode):
         if nodelist is None:
             edgelist = self.edges(data=True)
         else:
@@ -39,6 +40,7 @@ class nxNode(nx.Graph):
         target_nodes = [t for _, t, _ in edgelist]
 
         all_attrs = set().union(*(d.keys() for _, _, d in edgelist))
+        nan = float("nan")
         edge_attr = {k: [d.get(k, nan) for _, _, d in edgelist] for k in all_attrs}
         edgelistdict = {source: source_nodes, target: target_nodes}
 
@@ -46,6 +48,30 @@ class nxNode(nx.Graph):
         return pd.DataFrame(edgelistdict, dtype=dtype)
 
 
+    def make_frame_from_dict(self, nodelist=None, dtype=nxNode):
+        dod = {}
+        if nodelist is None:
+            if edge_data is None:
+                for u, nbrdict in self.adjacency():
+                    dod[u] = nbrdict.copy()
+            else:  # edge_data is not None
+                for u, nbrdict in self.adjacency():
+                    dod[u] = dod.fromkeys(nbrdict, edge_data)
+        else:  # nodelist is not None
+            if edge_data is None:
+                for u in nodelist:
+                    dod[u] = {}
+                    for v, data in ((v, data) for v, data in self[u].items() if v in nodelist):
+                        dod[u][v] = data
+            else:  # nodelist and edge_data are not None
+                for u in nodelist:
+                    dod[u] = {}
+                    for v in (v for v in G[u] if v in nodelist):
+                        dod[u][v] = edge_data
+        return pd.DataFrame(dod, dtype=dtype)
+
+
+    
     def add_node(self, node, **attr):
         if node_for_adding not in self._node:
             if node_for_adding is None:
@@ -56,6 +82,15 @@ class nxNode(nx.Graph):
         else:  # update attr even if node already exists
             self._node[node_for_adding].update(attr)
 
+    def edges(self):
+        return EdgeView(self)
+
+    def get_edge_data(self, u, v):
+        try:
+            return self._adj[u][v]
+        except KeyError:
+            return default
+    
     def __str__(self):
         stack = inspect.stack()
         #for frame in stack:
@@ -112,15 +147,7 @@ class nxNode(nx.Graph):
         #    print('\n',frame.filename, frame.function)
         if stack[-1].filename == '<stdin>':
             return str(self.id)
-        elif stack[1].function == '_object_format':
-            return str(self.id)
-        elif stack[1].function == 'plot':
-            return str(self.id)
-        elif stack[1].function == 'save_frame':
-            return str(self.id)
         elif stack[1].function == '__str__':
-            return str(self.id)
-        elif stack[2].function == 'plot':
             return str(self.id)
         else:
             return self
