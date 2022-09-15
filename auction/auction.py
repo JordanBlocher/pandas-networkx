@@ -1,6 +1,7 @@
 import numpy as np
 import networkx as nx
 from node import Node
+from nxnode import nxNode
 import random
 
 from termcolor import colored
@@ -18,24 +19,18 @@ class Auction(nx.Graph):
         rng = nx.utils.create_random_state()
         params = self.make_params()
         self.start_time = params['start_time']
-        self.update_params('buyer')        
-        self.update_params('seller')        
 
-        for ntype in ['buyer', 'seller']:
-            for node in range(params['n'+ntype+'s']):
-                new_node = Node()
-                new_node.build(params[ntype])
-                self.add_node(new_node)
-        for node in self.node_list(buyer_filter):
-            rand = rsample(  
-                           self.node_list(seller_filter),
-                           params['g_max']
-                           )
-            for other_node in rand:
-                self.add_edge((node,other_node))
+        for node in range(params['nsellers']):
+            new_node = Node(params['seller'])
+            self.add_node(new_node)
+        for node in range(params['nbuyers']):
+            new_node = Node(params['buyer'])
+            self.add_star(new_node)
+        
         pos = nx.spectral_layout(self, dim=3)
         for node in self.node_list():
             node.pos = pos[node] 
+        self.print_auction()
      
 
     def node_view(self, node_filter=None, other_node=None):
@@ -62,7 +57,7 @@ class Auction(nx.Graph):
                                   ).nodes
                     )
 
-    def compose_node(self, node, other_node=None):
+    def add_star(self, node, other_node=None):
         neighbors = rsample(
                         self.node_list(
                                 inv_type_filter(node.type)
@@ -71,14 +66,13 @@ class Auction(nx.Graph):
                         )
         if other_node:
             neighbors.append(other_node)
-        g = nx.star_graph([node] + neighbors)
-        self.add_node(node)
-        self = nx.compose(self,g) 
-        for neighbor in neighbors:
-            self.put_edge((node,neighbor))
+        nx.add_star(self, [node] + neighbors)
+        for v in list(neighbors):
+            self.add_edge(node, v)
 
+    '''
     def add_node(self, node):
-        super().add_node( node,
+        super().add_node(node,
                 price=node.price,
                 value=node.private_value, 
                 color=node.color, 
@@ -87,80 +81,68 @@ class Auction(nx.Graph):
                 type=node.type
                 )
 
-    def add_edge(self, edge):
+    def add_edge(self, source, target, ts=None):
         super().add_edge(
-                    edge[0], 
-                    edge[1], 
-                    weight = edge[0].price,
-                    weight1= edge[1].price,
+                    source,
+                    target,
+                    capacity = source.price,
+                    weight = source.demand,
+                    ts=ts
                     )
-
+    '''
     def update_auction(self, winner, seller):
-        seller.demand -= 1
-        winner.demand += 1
+        global params
+        seller.demand += 1
+        winner.demand -= 1
         self.update_demand(winner)
         self.update_demand(seller)
+        for ntype in ['seller', 'buyer']:
+            if self.nnodes(type_filter(ntype))-params['g_max']<2:
+               new_node = Node(params[ntype]) 
+               self.add_star(new_node)  
         '''
         The sellers can't add buyers to thier auction. If they
             do it causes instability.
         '''
         for buyer in self.buyer_list():
             if len(self.seller_list(buyer)) < 2:
-                self.put_edge(buyer, rng.choice(self.seller_list()))
-    
+                self.add_edge(buyer, random.choice(self.seller_list()))
+         
     def update_demand(self, node):
         global params
         if node in self.nodes:
             if node.demand == 0:
                 Node.ids.append(node.id)
                 self.remove_node(node)
-                new_node = Node()
-                new_node.build(params[node.type]) 
-                self.compose_node(new_node)
+                new_node = Node(params[node.type]) 
+                self.add_star(new_node)
 
     def update(self):
         global params
+        print(self.nnodes())
         params = self.make_params()
         for ntype in ['buyer', 'seller']:
-            if params['n'+ntype+'s']-self.nnodes(type_filter(ntype)) > 2:
-                self.update_params(ntype)
-                self.update_nodes(ntype)
+            cnt = self.nnodes(type_filter(ntype))-params['n'+ntype+'s']
+            if cnt > 2:
+                self.update_nodes(cnt, ntype)
+            params['nnodes'] = self.nbuyers()+self.nsellers()
         return params
-
-    def update_params(self, ntype):
+  
+    def update_nodes(self, cnt, ntype):
         global params
-        price = rng.poisson(
-                        params[ntype]['max_price'], 
-                        size=params['nnodes']+10
-                        )
-        params[ntype]['price'] = price
-        self.inc_factor = rng.uniform(
-                                params[ntype]['inc'][0], 
-                                params[ntype]['inc'][1], 
-                                size=params['nnodes']+5
-                                ),
-        self.dec_factor = rng.uniform(
-                                params[ntype]['dec'][0], 
-                                params[ntype]['dec'][1], 
-                                size=params['nnodes']+5
-                                ),
-        params[ntype]['inc_factor'] = self.inc_factor
-        params[ntype]['dec_factor'] = self.dec_factor
-
-      
-    def update_nodes(self, ntype):
-        global params
-        node_filter=type_filter(ntype)
-        cnt = self.nnodes(node_filter) - params['n'+ntype+'s'] - 1
         for n in range(abs(cnt)):
             if cnt < 0:
-                new_node = Node()
-                new_node.build(params[ntype])
-                self.compose_node(new_node) 
+                new_node = Node(params[ntype])
+                self.add_star(new_node) 
             else:
-                choice = rng.choice(self.node_list(node_filter))
+                choice = random.choice(
+                                self.node_list(
+                                        type_filter(ntype)
+                                            )
+                                    )
                 Node.ids.append(choice.id)
                 self.remove_node(choice)
+        params['n'+ntype+'s']=self.nnodes(type_filter(ntype))
     
     def nnodes(self, node_filter=None):
         return len(self.node_list(node_filter))
@@ -177,44 +159,28 @@ class Auction(nx.Graph):
     def nsellers(self):
         return len(self.seller_list())
 
-
-
-    def print_auction(self):
-        for seller in self.seller_list():
-            print(colored(seller, 'magenta'), end=' ') 
-        for buyer in self.buyer_list():
-            print(colored(buyer, 'green'), end=' ')
-        print('')
-        for seller in self.seller_list():
-            print(colored(seller, 'magenta'), end=' ') 
-            for buyer in self.buyer_list(seller):
+    def print_auction(self, data=False):
+        if data:
+            for seller in self.seller_list():
+                print(colored(seller, 'magenta'), end=' ') 
+            print('')
+            for buyer in self.buyer_list():
                 print(colored(buyer, 'green'), end=' ')
+            print('')
+        print(colored(self.nbuyers(), 'green'), end=' ')
+        print(colored(self.nsellers(), 'magenta')) 
+        for seller in self.seller_list():
+            print(colored(seller.id, 'magenta'), end=' ') 
+            for buyer in self.buyer_list(seller):
+                print(colored(buyer.id, 'green'), end=' ')
             print('')
         return
  
-        for seller in self.seller_list():
-            print(
-                colored(seller, 'magenta'), 
-                colored('%3s' % seller.demand, 'yellow'),
-                colored('%3s' % seller.price, 'blue'),
-                colored('%3s' % seller.private_value, 'cyan'),
-                end=' '
-                )
-            for buyer in self.buyer_list(seller):
-                print(
-                    colored(buyer, 'green'), 
-                    colored('%3s' % buyer.demand, 'yellow'),
-                    colored('%3s' % buyer.price, 'blue'),
-                    colored('%3s' % buyer.private_value, 'cyan'),
-                    end=' '
-                    )
-            print('\n')
-
 # randomly sample from a list 
-def rsample(x, n):
+def rsample(x, maxn):
     u = random.sample(
                     [n for n in range(len(x))],
-                    random.randint(2,n)
+                    random.randint(2,maxn)
                     )
     return [x[z] for z in u]
 

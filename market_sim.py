@@ -20,6 +20,7 @@ sns.set()
 cscale1 = 'portland'
 cscale2 = 'plasma'
 
+# Note: pandas df edge per row
 
 class MarketSim:
 
@@ -36,24 +37,16 @@ class MarketSim:
         mk.make_params = make_params
         mk.make_graph()
         self.fig = sp.make_subplots(
-                        rows=3, 
+                        rows=1, 
                         cols=2, 
                         column_widths=[1, 1],
-                        row_heights=[1, 1, 1],
+                        row_heights=[1],
                         subplot_titles = ('', '', '', ''),
-                        specs=[
-                                [{'type': 'parcoords','colspan': 2},
-                                 {}],
-                                [{'type': 'surface'},
-                                 {}],
-                                [{'type': 'surface'},
-                                 {}],
-                            
-                            ],
-                            horizontal_spacing = 0.1,
-                            vertical_spacing = 0.05
+                        specs=[[{'type':'scatter3d'},
+                                {'type':'parcoords'}]],
+                        horizontal_spacing = 0.01,
+                        vertical_spacing = 0.01
                         )
-
         df = mk.save_frame(params['start_time'])
         #self.plot(df)
 
@@ -64,8 +57,41 @@ class MarketSim:
         self.end_time = time.time()
         self.read_clock(clock, 1)
         #self.plot_update(df)
-        rnum += 1
         return self.fig 
+
+    def plot(self, df):
+        rf = df['0']
+        mat = rf['adj']
+        edges = rf['edges']
+        nodes = [node for node in mat.axes[0]]
+        ids = sorted([node.id for node in nodes])
+
+        #nodekv = dict([(node.id, node.__dict__()) for node in nodes])
+
+        print(self.fig)
+        print(edges)
+        self.add_scatter3d(nodes, ids, cscale1, row=1, col=1)
+        self.add_lines(edges, ids, cscale1, row=1, col=1)
+        self.add_parcoords(nodes, cscale1, row=1, col=2)
+        #self.add_contour(mat, ids, cscale2,row=2, col=1)
+        #self.add_contour(mat.corr(), ids, cscale2,row=2, col=2)
+       
+        keys = [df['f']]
+        self.num_frames += len(keys) 
+
+        updatemenus, sliders = self.make_menus(keys)
+
+        margin = {'l': 10, 'r': 10, 't': 15, 'b': 5}
+        scene = {'aspectratio' : {'x':10,'y':1,'z':3}}
+        self.fig.update_layout(
+                                height=600, 
+                                showlegend=False,  
+                                updatemenus=updatemenus, 
+                                sliders=[sliders], 
+                                margin=margin,
+                                scene=scene
+                                )
+        self.frames = self.fig['frames']
 
     def read_clock(self, clock, ts):
         global mk
@@ -86,10 +112,11 @@ class MarketSim:
 
         return cf
 
-    def print_round(self):
-        print('round', self.auction_round, 
-              ': nbuyers=', self.nbuyers(), 
-              ', nsellers=', self.nsellers(),
+    def print_round(self, rnum):
+        global mk
+        print('round', rnum,
+              ': nbuyers=', mk.nbuyers(), 
+              ', nsellers=', mk.nsellers(),
               ', nframes=', len(self.fig['frames']))
         #print(nx.to_pandas_adjacency(auctioneer.G))
         #if len(sys.argv) > 1:
@@ -176,38 +203,9 @@ class MarketSim:
                ), row=row, col=col)
         self.ntraces+=1
  
-    def plot(self, df):
-        rf = df['0']
-        mat = rf['adj']
-        edges = rf['edges']
-        nodes = [node for node in mat.axes[0]]
-        ids = sorted([node.id for node in nodes])
 
-        #nodekv = dict([(node.id, node.__dict__()) for node in nodes])
-
-        self.add_parcoords(nodes, cscale1, row=1, col=1)
-        self.add_scatter3d(nodes, ids, cscale1, row=2, col=1)
-        self.add_lines(edges, ids, cscale1, row=2, col=1)
-        self.add_contour(mat, ids, cscale2,row=2, col=2)
-        
-        keys = [df['f']]
-        self.num_frames += len(keys) 
-
-        updatemenus, sliders = self.make_menus(keys)
-
-        margin = {'l': 10, 'r': 10, 't': 15, 'b': 5}
-    
-        self.fig.update_layout(
-                                height=600, 
-                                showlegend=False,  
-                                updatemenus=updatemenus, 
-                                sliders=[sliders], 
-                                margin=margin
-                                )
-        self.frames = self.fig['frames']
 
     def add_parcoords(self, nodes, cscale, row, col):
-        
         self.fig.add_trace(go.Parcoords(
             line = dict(
                         color = [v.color for v in nodes],
@@ -252,8 +250,9 @@ class MarketSim:
                             hovertemplate='<b>%{hovertext}</b><extra></extra>',
                             showlegend=False,
                             mode = 'markers',
-                            #surfacecolor = 'darkorchid',
+                            surfacecolor = 'darkorchid',
                             surfaceaxis = 2,
+                            opacity = 0.5,
                             marker = {  
                                         'color': [v.color for v in nodes],
                                         'colorscale': cscale,
@@ -263,7 +262,7 @@ class MarketSim:
         self.ntraces+=1
 
     def add_lines(self, edges, ids, cscale, row, col):
-        edge_pos = np.array([(u.pos, v.pos) for u,v,z in edges.values])
+        edge_pos = np.array([(u.pos, v.pos) for u,v,w,z in edges.values])
         for v in edge_pos:
             self.fig.add_trace(go.Scatter3d(
                                 x=v.T[0],
@@ -275,7 +274,7 @@ class MarketSim:
                                         'width' : 1
                                     },
                             ), row=row, col=col)
-            self.ntraces += 1
+        self.ntraces += 1
 
     def add_surface(self, nodes, edges, ids, cscale, row, col):
         pos = np.array([[u.pos, v.pos] for u,v,z in edges.values])
@@ -314,9 +313,7 @@ class MarketSim:
       
     def plot_update(self, df):
         keys = np.array(df['f'].values, dtype=str)
-        
         args, steps = self.update_menus(keys)
-
         raw_frames = [(k,df[k]) for k in keys]
         mat = dict([(k,rf['adj']) for k,rf in raw_frames])
         edges = dict([(k,rf['edges']) for k,rf in raw_frames])
@@ -338,12 +335,6 @@ class MarketSim:
                                 marker = {  
                                         'color': [v.color for v in nodes[k]],
                                     },
-                            ),
-                            go.Scatter3d(
-                                x=[v.pos[0] for v in nodes[k]],
-                                y=[v.pos[1] for v in nodes[k]],
-                                z=[v.pos[2] for v in nodes[k]],
-                                ids=ids[k]
                             ),
                             go.Contour(
                                 x=ids[k],

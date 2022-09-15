@@ -25,11 +25,6 @@ class Auctioneer(Auction):
     fnum=0
 
     def save_frame(self, start_time=0):
-
-        d = nx.to_dict_of_dicts(self)
-        p=pd.DataFrame()
-        p.from_dict({'cat':['meaow', 'purr'],'dog':['woow', 'brk']}, orient='index')
-        print(p)
         ts = round(time.time()-start_time,4),
         nodes = sorted(self.node_list(), key=lambda x: x.id)
    
@@ -89,7 +84,8 @@ class Auctioneer(Auction):
         self.auctions_history.append([])
 
         for seller in self.seller_list():
-            #self.print_auction()
+            self.print_auction()
+
             if seller not in self:
                 continue
             if len(self.buyer_list(seller)) < 1:
@@ -124,7 +120,7 @@ class Auctioneer(Auction):
                     buyer.price = round(
                                     buyer.price * params['buyer']['dec'][buyer.id],
                                     2)
-        [self.add_edge((buyer, node)) for node in node_list]
+        [self.add_edge(buyer, node) for node in node_list]
         self.save_frame()
         return buyer
  
@@ -140,10 +136,12 @@ class Auctioneer(Auction):
             print('Taking first price')
             winner.price = sorted_buyers[0].price
         seller.private_value = sorted_buyers[0].price
-        self.add_edge((winner, seller))
-        [self.add_edge((winner, buyer)) for buyer in self.buyer_list(seller)]
 
-        Clock(seller, winner, self.buyer_list(winner), params['start_time'])
+        ts = round(time.time()-params['start_time'],4)
+        self.add_edge(winner, seller)
+        [self.add_edge(winner, buyer) for buyer in self.buyer_list(seller)]
+
+        Clock(seller, winner, self.buyer_list(winner), ts)
 
         return winner
 

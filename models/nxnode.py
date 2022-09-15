@@ -6,12 +6,36 @@ import inspect
 import pandas as pd
 np.set_printoptions(precision=2)
 
+from collections.abc import Collection, Generator, Iterator
+from collections.abc import Mapping
 import networkx.convert as convert
+from networkx.classes.coreviews import AdjacencyView
+from networkx.classes.reportviews import EdgeView, NodeView
+
+
+class _CachedPropertyResetterAdj:
+    def __set__(self, obj, value):
+        od = obj.__dict__
+        od["_adj"] = value
+        if "adj" in od:
+            del od["adj"]
+
+
+class _CachedPropertyResetterNode:
+    def __set__(self, obj, value):
+        od = obj.__dict__
+        od["_node"] = value
+        if "nodes" in od:
+            del od["nodes"]
+
 
 
 class nxNode(nx.Graph):
     
     id = 0
+    _adj = _CachedPropertyResetterAdj()
+    _node = _CachedPropertyResetterNode()
+
     node_frame_factory = pd.DataFrame
     node_attr_frame_factory = pd.DataFrame
     edge_attr_frame_factory = pd.DataFrame
@@ -20,18 +44,16 @@ class nxNode(nx.Graph):
     adjlist_inner_frame_factory = pd.DataFrame
    
 
-    def __init__(self, incoming_graph_data=None, **attr):
+    def __init__(self, **attr):
         nxNode.id += 1
         self.id = nxNode.id
         self.graph = self.graph_attr_frame_factory()  
         self._node = self.node_frame_factory()  
         self._adj = self.adjlist_outer_frame_factory()  
-        if incoming_graph_data is not None:
-            convert.to_networkx_graph(incoming_graph_data, create_using=self)
         self.graph.update(attr)
 
 
-    def make_frame(self, source="buyer", target="seller", nodelist=None, dtype=nxNode):
+    def make_frame(self, source="buyer", target="seller", nodelist=None, dtype=None):
         if nodelist is None:
             edgelist = self.edges(data=True)
         else:
@@ -42,13 +64,13 @@ class nxNode(nx.Graph):
         all_attrs = set().union(*(d.keys() for _, _, d in edgelist))
         nan = float("nan")
         edge_attr = {k: [d.get(k, nan) for _, _, d in edgelist] for k in all_attrs}
-        edgelistdict = {source: source_nodes, target: target_nodes}
+        edgelistframe = {source: source_nodes, target: target_nodes}
 
-        edgelistdict.update(edge_attr)
-        return pd.DataFrame(edgelistdict, dtype=dtype)
+        edgelistframe.update(edge_attr)
+        return pd.DataFrame(edgelistframe, dtype=dtype)
 
 
-    def make_frame_from_dict(self, nodelist=None, dtype=nxNode):
+    def make_frame_from_dict(self, nodelist=None, dtype=None):
         dod = {}
         if nodelist is None:
             if edge_data is None:
@@ -70,17 +92,26 @@ class nxNode(nx.Graph):
                         dod[u][v] = edge_data
         return pd.DataFrame(dod, dtype=dtype)
 
-
-    
-    def add_node(self, node, **attr):
-        if node_for_adding not in self._node:
-            if node_for_adding is None:
-                raise ValueError("None cannot be a node")
-            self._adj[node_for_adding] = self.adjlist_inner_frame_factory()
-            attr_frame = self._node[node_for_adding] = self.node_attr_frame_factory()
+    def add_node(self, new_node, **attr):
+        if new_node not in self._node:
+            self._adj[new_node] = self.adjlist_inner_frame_factory()
+            attr_frame = self._node[new_node] = self.node_attr_frame_factory()
             attr_frame.update(attr)
-        else:  # update attr even if node already exists
-            self._node[node_for_adding].update(attr)
+        else:  
+            self._node[new_node].update(attr)
+
+    def add_edge(self, u, v, **attr):
+        if u not in self._node:
+            self._adj[u] = self.adjlist_inner_frame_factory()
+            self._node[u] = self.node_attr_frame_factory()
+        if v not in self._node:
+            self._adj[v] = self.adjlist_inner_frame_factory()
+            self._node[v] = self.node_attr_frame_factory()
+
+        dataframe = self._adj[u].get(v, self.edge_attr_frame_factory())
+        dataframe.update(attr)
+        self._adj[u][v] = dataframe
+        self._adj[v][u] = dataframe
 
     def edges(self):
         return EdgeView(self)
@@ -91,19 +122,6 @@ class nxNode(nx.Graph):
         except KeyError:
             return default
     
-    def __str__(self):
-        stack = inspect.stack()
-        #for frame in stack:
-        #    print('\n',frame.filename, frame.function)
-        if stack[1].function == '<dictcomp>':
-            return  str(self.__dict__())
-        elif stack[1].function == 'plot':
-            return  str(self.__dict__())
-        elif stack[2].function == 'plot':
-            return  str(self.__dict__())
-        else:
-            return str(self.id)
-            
     def remove_node(self, n):
         adj = self._adj
         try:
@@ -115,9 +133,17 @@ class nxNode(nx.Graph):
             del adj[u][n]  
         del adj[n] 
 
+    @cached_property
     def nodes(self):
         return NodeView(self)
     
+    @cached_property
+    def adj(self):
+        return AdjacencyView(self._adj)
+        
+    def edges(self):
+        return EdgeView(self)
+
     def add_edge(self, u_of_edge, v_of_edge, **attr):
         u, v = u_of_edge, v_of_edge
         if u not in self._node:
@@ -167,4 +193,8 @@ class nxNode(nx.Graph):
     def __ge__(self, other):
         return self.id >= other.id
 
+    def __name__(self):
+        return 'nxnode'
 
+    def __iter__(self):
+        return iter(self._node)

@@ -13,20 +13,23 @@ from dash.dependencies import Input, Output
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from market_sim import MarketSim
+from params import make_params
+from globals import *
 
 def get_new_data():
     global auction_round
-    while True and auction_round < nrounds:
+    while True: #and auction_round < nrounds:
         try:
             df = do_round()
             time.sleep(.1)
         except KeyboardInterrupt:
+            executor.shutdown()
             exit()
 
 def do_round():
     global fig, auction_round
     fig = sim.do_round(auction_round)
-    sim.print_round()
+    sim.print_round(auction_round)
     auction_round += 1
     return fig
 
@@ -48,70 +51,6 @@ def make_layout():
         html.Br(),
         ])
 
-def make_params():
-    global start_time, nsellers, nbuyers, noise, auction_round
-
-    rng = nx.utils.create_random_state()
-
-    option = False
-    nnodes = nbuyers+nsellers
-    noise_low = .2, #nOTE: TRY NEGATIVE VALUES
-    noise_high = 1.2
-
-    buyer_init_factor = rng.uniform(.5, .8) # bid under
-    buyer_max_price = 75
-    buyer_max_quantity = 70
-    buyer_inc = [.9, 1] # 1.2 1.5
-    buyer_dec = [0.8, 9] #0.3 0.7
-
-    seller_init_factor = rng.uniform(1.2, 1.5) # bid over
-    seller_max_price = 95
-    seller_max_quantity = 100
-    seller_inc = [.1, 1]
-    seller_dec = [.1, 1]
-
-    return dict(
-    auction_round = auction_round,
-    start_time = start_time,
-    option = option,
-    noise = noise,
-    nsellers = nsellers,
-    nbuyers = nbuyers,
-    # nnodes, g_mod, and nbuyers/sellers are not independent, 
-    # there should be an optimal
-    # formula for EQ
-    nnodes = nnodes,
-    g_max = min(nbuyers, nsellers)-2,
-    noise_factor = dict(
-                        low = noise_low,
-                        high = noise_high,
-        ),
-    buyer = dict(
-            init_factor = buyer_init_factor,
-            max_price = buyer_max_price,
-            max_quantity = buyer_max_quantity,
-            inc = buyer_inc,
-            dec = buyer_dec,
-            flow = 1,
-            price = []
-            ),
-    seller = dict(
-            init_factor = seller_init_factor,
-            max_price = seller_max_price,
-            max_quantity = seller_max_quantity,
-            inc = seller_inc,
-            dec = seller_dec,
-            flow = -1,
-            price = []
-            )
-        )
-
-nbuyers = 7
-nsellers = 5
-noise = False
-nrounds = 10
-auction_round = 0
-
 start_time = time.time()     
 sim = MarketSim(make_params)
 fig = sim.fig
@@ -128,4 +67,5 @@ if __name__ == '__main__':
         get_new_data()
 
 
+sys.modules[__name__] = make_params
 

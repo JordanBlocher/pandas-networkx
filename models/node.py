@@ -3,45 +3,54 @@ import numpy as np
 import networkx as nx
 import seaborn as sns
 import inspect
+from nxnode import nxNode
 np.set_printoptions(precision=2)
 
-from networkx import Graph 
+import pandas as pd
+from pandas.core.dtypes.base import ExtensionDtype
+from pandas.api.extensions import register_extension_dtype
+from pandas.core.arrays import ExtensionArray, ExtensionScalarOpsMixin
 
-class Node(Graph):
+
+
+class Node(nxNode):
     
-    _node = _CachedPropertyResetterNode
-    ids = []
     id = 0
+    ids = []
 
     def __init__(self, params):
+        super().__init__()
         rng = nx.utils.create_random_state()
         if len(Node.ids) > 1:
             self.id = rng.choice(Node.ids)
             Node.ids.remove(self.id)
         else:
-            self.id = Node.id
             Node.id +=1
-        self.demand = rng.randint(1, params['max_quantity']) * params['flow']
+            self.id = Node.id
+        
+        self.demand = rng.randint(1, 
+                            params['max_quantity']
+                            ) * params['flow']
         self.private_value = 0
-        self.price = round(params['init_factor'] * params['price'][self.id], 2)
+        self.price = round(
+                        params['init_factor'
+                        ] * params['price'][self.id], 2)
         self.color = int(self.price)*params['flow']
-        if params['flow'] < 0:
+        if params['flow'] < 0: # negative flow wants to send out 
             self.type = 'buyer'
         else:
             self.type = 'seller'
         self.pos = [self.id*20, self.color*params['flow'], 0]
 
-    def put_node(self, node):
-        if node not in self._node:
-            if node is None:
-                raise ValueError("None cannot be a node")
-            self._adj[node] = self.adjlist_inner_dict_factory()
-            attr_dict = self._node[node_for_adding] = self.node_attr_dict_factory()
-            attr_dict.update(attr)
-        else:  # update attr even if node already exists
-            self._node[node].update(attr)
 
-        self.add_node( node,
+    def filter(self, node):
+        return self.type == node.type
+
+    def inv_filter(self, node):
+        return self.type != node.type
+
+    def add_node(self, node):
+        super().add_node(node,
                 price=node.price,
                 value=node.private_value, 
                 color=node.color, 
@@ -50,23 +59,17 @@ class Node(Graph):
                 type=node.type
                 )
 
-    def put_edge(self, edge):
-        for i in [0,1]:
-            if not self.has_node(edge[i]):
-                self.add_node(edge[i])
-        self.add_edge(
-                    edge[0], 
-                    edge[1], 
-                    weight = edge[0].price
+    def add_edge(self, source, target, ts=None):
+        super().add_edge(
+                    source,
+                    target,
+                    capacity = source.price,
+                    weight = source.demand,
+                    ts=ts
                     )
-
-    def filter(self, node):
-        return self.type == node.type
-
-    def inv_filter(self, node):
-        return self.type != node.type
-
-    def __dict__(self):
+    
+    '''
+    def __to_dict__(self):
          return {
                 'demand': self.demand, 
                 'value': self.private_value,
@@ -81,11 +84,13 @@ class Node(Graph):
         #for frame in stack:
         #    print('\n',frame.filename, frame.function)
         if stack[1].function == '<dictcomp>':
-            return  str(self.__dict__())
+            return  str(self.__to_dict__())+'\n'
         elif stack[1].function == 'plot':
-            return  str(self.__dict__())
+            return  str(self.__to_dict__())+'\n'
         elif stack[2].function == 'plot':
-            return  str(self.__dict__())
+            return  str(self.__to_dict__())+'\n'
+        elif 'print' in stack[2].function:
+            return  str(self.__to_dict__())+'\n'
         else:
             return str(self.id)
             
@@ -123,4 +128,4 @@ class Node(Graph):
     def __ge__(self, other):
         return self.id >= other.id
 
-
+    '''
