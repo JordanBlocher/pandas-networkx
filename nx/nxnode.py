@@ -24,7 +24,9 @@ class _CachedPropertyResetterNode:
             del od["nodes"]
 
 def id(obj):
-    if 'id' in obj.__dict__.keys():
+    if type(obj) == int:
+        return obj
+    elif 'id' in obj.__dict__.keys():
        return obj.id
     else:
         obj.__dict__['id'] = obj.__hash__()
@@ -68,30 +70,27 @@ class nxNode(nx.Graph):
         columns = pd.Index(['source', 'target', 'capacity', 'ts'])
         df = self.edge_attr_frame_factory(DataView(attr), columns=columns)
         df.set_index(['source', 'target'], inplace=True)
-        print("DF", df)
         key = (id(u),id(v))
         if key in self._adj.index:
             self._adj.loc[key] = df.loc[key]
         else:
             self._adj = self._adj.append(df)
-        print(self._adj)
 
     def get_edge_data(self, u, v):
+        idx = pd.IndexSlice
         if (id(u),id(v)) in self._adj.index:
             return self._adj.loc[idx[id(u),id(v)]]
         else:
             return pd.Series()
             
     def remove_node(self, n):
-        adj = self._adj
-        try:
-            nbrs = list(adj[n])  
-            del self._node[n]
-        except KeyError as err:  
-            return 'NetworkXError: n not in self'
-        for u in nbrs:
-            del adj[u][n]  
-        del adj[n] 
+        idx = pd.IndexSlice
+        slice = self[n]
+        print(slice)
+        if n in self:
+            for e in self[n].T:
+                self._adj = self._adj.drop(e)
+            self._node = self._node.drop(id(n))
 
     def nodes(self, data=True):
         return NodeView(self).data
@@ -123,9 +122,13 @@ class nxNode(nx.Graph):
             else: 
                 self.graph.loc[:,v].values[0] = k
 
-    def __get_item(self, n):
+    def __getitem__(self, n):
         idx = pd.IndexSlice
-        return self._adj.loc[idx[n,:],:]
+        if n in self:
+            try:
+                return self._adj.loc[idx[id(n),:],:]
+            except:
+                return self._adj.loc[idx[:,id(n)],:]
 
     def __contains__(self, n):
         try:

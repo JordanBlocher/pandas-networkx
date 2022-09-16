@@ -38,5 +38,6 @@ def test():
     n.add_edge(n3,n2,ts=11)
     n.add_edge(n1,n2,ts=12)
     n.add_edge(n1,n4,ts=13)
+    n.add_edge(n3,n4,ts=13)
 
     return a, n, nodes

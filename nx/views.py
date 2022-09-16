@@ -111,20 +111,18 @@ class NodeView(Mapping, Set):
 
 class NodeDataView(Set):
 
-    __slots__ = ("_nodes", "_data", "_default")
+    __slots__ = ("_nodes", "_data")
 
     def __getstate__(self):
-        return {"_nodes": self._nodes, "_data": self._data, "_default": self._default}
+        return {"_nodes": self._nodes, "_data": self._data}
 
     def __setstate__(self, state):
         self._nodes = state["_nodes"]
         self._data = state["_data"]
-        self._default = state["_default"]
 
-    def __init__(self, nodedict, data=False, default=None):
+    def __init__(self, nodedict, data=False):
         self._nodes = nodedict
         self._data = data
-        self._default = default
 
     @classmethod
     def _from_iterable(cls, it):
@@ -142,13 +140,9 @@ class NodeDataView(Set):
     def __iter__(self):
         data = self._data
         if data is False:
-            return iter(self._nodes)
+            return iter(self._nodes.index)
         if data is True:
             return iter(self._nodes.items())
-        return (
-            (n, dd[data] if data in dd else self._default)
-            for n, dd in self._nodes.items()
-        )
 
     def __contains__(self, n):
         try:
