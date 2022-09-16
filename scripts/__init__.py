@@ -1,3 +1,3 @@
-from .setup import test
+from .setup import *
 
 __all__ = ['test']

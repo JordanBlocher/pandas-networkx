@@ -7,7 +7,7 @@ import time
 class Clock(nxNode):
 
     ts = 0
-    T = nxNode()
+    T = nx.Graph()
 
     def __init__(self, seller, winner, neighbors, ts):
         self.ts = ts
@@ -18,20 +18,20 @@ class Clock(nxNode):
         for v in neighbors:
             self.winner.add_node(v)
             self.winner.add_edge(self.winner, v)
-        Clock.T.add_node(self)
-        for node in [n for n in Clock.T.nodes]: 
+        Clock.add_node(self)
+        for node in [n for n in Clock.nodes]: 
             if type(node) == Node:
                 continue
             if self.ts - node.ts < 0.5:
                 for nb in neighbors:
                     for np in node:
                         if np == nb:
-                            if Clock.T.has_edge(self, node):
+                            if Clock.has_edge(self, node):
                                 ts=self.ts
                             else:
                                 ts=node.ts
                             self.winner.add_edge(nb, np, ts=ts)
-                            Clock.T.add_edge(self, node, ts=ts)
+                            Clock.add_edge(self, node, ts=ts)
                     
     def __repr__(self):
         return str(self.ts)

@@ -5,6 +5,8 @@ class DataView(Mapping):
     def __init__(self, d):
         self._values = list(d.values())
         self._keys = list(d.keys())
+        self._atlas = d
+        print(d)
 
     def __len__(self):
         return len(list(self._keys))
@@ -14,8 +16,11 @@ class DataView(Mapping):
         return iter(values)
 
     def __getitem__(self, n):
-        ddict = self._values[n]
-        return ddict
+        print(self._atlas)
+        if n in self._keys:
+            return self._atlas[n]
+        else:
+            return self._values[n]
 
 
 class AdjView(Mapping):

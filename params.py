@@ -6,6 +6,7 @@ import os
 from globals import *
 
 def make_params():
+    global nbuyers, nsellers, noise, rounds, auction_round
 
     rng = nx.utils.create_random_state()
 
@@ -42,7 +43,7 @@ def make_params():
                         low = noise_low,
                         high = noise_high,
         ),
-    buyer = dict(
+    buyer = dict(# negative flow wants to send out 
             init_factor = buyer_init_factor,
             max_price = buyer_max_price,
             max_quantity = buyer_max_quantity,
@@ -56,13 +57,13 @@ def make_params():
                                 buyer_inc[1],
                                 size=nnodes+15
                                 ),         
-            flow=1,
+            flow=-1,
             price = rng.poisson(
                         buyer_max_price,
                         size=nnodes+15
                         )
             ),
-    seller = dict(
+    seller = dict( 
             init_factor=seller_init_factor,
             max_price=seller_max_price,
             max_quantity=seller_max_quantity,
@@ -76,7 +77,7 @@ def make_params():
                                 seller_dec[1],
                                 size=nnodes+15
                                 ),         
-            flow=-1,
+            flow=1,
             price = rng.poisson(
                         seller_max_price,
                         size=nnodes+15

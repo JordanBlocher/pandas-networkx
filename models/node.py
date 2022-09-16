@@ -1,10 +1,10 @@
 import random
 import numpy as np
+np.set_printoptions(precision=2)
 import networkx as nx
 import seaborn as sns
 import inspect
-from nx import nxNode
-
+from nx import nxNode, id
 
 class Node(nxNode):
     
@@ -23,20 +23,19 @@ class Node(nxNode):
         self.demand = rng.randint(1, 
                             params['max_quantity']
                             ) * params['flow']
-        self.private_value = 0
+        self.value = 0
         self.price = round(
                         params['init_factor'
-                        ] * params['price'][self.id], 2)
+                     ] * params['price'][self.id], 2)
         self.color = int(self.price)*params['flow']
-        if params['flow'] < 0: # negative flow wants to send out 
+        if params['flow'] < 0: 
             self.type = 'buyer'
         else:
             self.type = 'seller'
-        self.pos = tuple((self.id*20, self.color*params['flow'], 0))
+        self.pos = tuple(np.array([self.id*20, self.color*params['flow'], 0], dtype=int))
         nxNode.__init__(self,
-                id=self.id,
                 price=self.price,
-                value=self.private_value, 
+                value=self.value, 
                 color=self.color, 
                 demand=self.demand,
                 pos=self.pos,
@@ -49,6 +48,14 @@ class Node(nxNode):
     def inv_filter(self, node):
         return self.type != node.type
 
+    def add_edge(self, u, v, ts=None):
+        super().add_edge(u ,v,
+                    source=id(u),
+                    target=id(v),
+                    capacity=u.price, 
+                    ts=ts
+                    )
+    
     '''
     def add_node(self, node):
         super().add_node(node,
@@ -115,3 +122,4 @@ class Node(nxNode):
             return self
 
     '''
+

@@ -139,7 +139,7 @@ class Auctioneer(Auction):
         self.add_edge(winner, seller)
         [self.add_edge(winner, buyer) for buyer in self.buyer_list(seller)]
 
-        Clock(seller, winner, self.buyer_list(winner), ts)
+        #Clock(seller, winner, self.buyer_list(winner), ts)
 
         return winner
 

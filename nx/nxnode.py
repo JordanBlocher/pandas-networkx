@@ -4,7 +4,6 @@ import networkx as nx
 import inspect
 import pandas as pd
 np.set_printoptions(precision=2)
-from .array import NXDtype, NXArray
 
 from nx import AdjView, EdgeView, NodeView, DataView
 from collections.abc import Mapping, Set
@@ -24,60 +23,65 @@ class _CachedPropertyResetterNode:
         if "nodes" in od:
             del od["nodes"]
 
+def id(obj):
+    if 'id' in obj.__dict__.keys():
+       return obj.id
+    else:
+        obj.__dict__['id'] = obj.__hash__()
+        return obj.__hash__()
 
 class nxNode(nx.Graph):
     
     _adj = _CachedPropertyResetterAdj()
     _node = _CachedPropertyResetterNode()
 
-    
     graph_attr_frame_factory = pd.DataFrame
-    node_frame_factory = pd.DataFrame
+    node_attr_frame_factory = pd.DataFrame
     edge_attr_frame_factory = pd.DataFrame
-    adjlist_outer_frame_factory = pd.DataFrame
-    adjlist_inner_frame_factory = pd.DataFrame
 
-    reserved_columns = ['id']
-    attr_columns = [] 
+    reserved_columns = set()
+    attr_columns = set() 
 
     def __init__(self, **attr):
-        self.attr_columns = list(attr.keys())
-        self._node = self.node_frame_factory()  
-        self._adj = self.adjlist_outer_frame_factory()  
+        attr_columns = set(attr.keys())
+        columns = pd.Index(self.__dict__.keys())
         self.graph = self.graph_attr_frame_factory(
-                                            DataView(attr), 
-                                            columns=self.attr_columns,
+                                            DataView(self.__dict__), 
+                                            columns=columns
                                             )
-        print(self.graph.columns)
-        if self.reserved_columns[0] in self.graph.columns:
+        self.reserved_columns=set(columns)-attr_columns
+        if 'id' in self.reserved_columns:
             self.graph.set_index('id', inplace=True)
+        self.attr_columns = attr_columns
+        self._node = self.node_attr_frame_factory()  
+        self._adj = self.edge_attr_frame_factory() 
 
     def add_node(self, new_node, **attr):
-        print(attr)
-        if new_node.id not in self._node.index:
-            self._node=self._node.append(new_node.graph.T[new_node.id])
+        if new_node not in self:
+            self._node=self._node.append(new_node.graph.T[id(new_node)])
         else:  
-            self._node[new_node.id]
+            self._node.loc[id(new_node)] = new_node.graph.loc[id(new_node)]
 
     def add_edge(self, u, v, **attr):
-        if u not in self._node:
-            self._adj[u] = self.adjlist_inner_frame_factory()
-            self._node[u] = self.node_attr_frame_factory()
-        if v not in self._node:
-            self._adj[v] = self.adjlist_inner_frame_factory()
-            self._node[v] = self.node_attr_frame_factory()
-
-        dataframe = self._adj[u].get(v, self.edge_attr_frame_factory())
-        dataframe.update(attr)
-        self._adj[u][v] = dataframe
-        self._adj[v][u] = dataframe
+        self.add_node(u)
+        self.add_node(v)
+        columns = pd.Index(['source', 'target', 'capacity', 'ts'])
+        df = self.edge_attr_frame_factory(DataView(attr), columns=columns)
+        df.set_index(['source', 'target'], inplace=True)
+        print("DF", df)
+        key = (id(u),id(v))
+        if key in self._adj.index:
+            self._adj.loc[key] = df.loc[key]
+        else:
+            self._adj = self._adj.append(df)
+        print(self._adj)
 
     def get_edge_data(self, u, v):
-        try:
-            return self._adj[u][v]
-        except KeyError:
-            return default
-    
+        if (id(u),id(v)) in self._adj.index:
+            return self._adj.loc[idx[id(u),id(v)]]
+        else:
+            return pd.Series()
+            
     def remove_node(self, n):
         adj = self._adj
         try:
@@ -90,7 +94,7 @@ class nxNode(nx.Graph):
         del adj[n] 
 
     def nodes(self, data=True):
-        return NodeView(self)
+        return NodeView(self).data
     
     def adj(self):
         return AdjView(self._adj)
@@ -98,20 +102,8 @@ class nxNode(nx.Graph):
     def edges(self, data=False):
         return EdgeView(self)
 
-    def add_edge(self, u_of_edge, v_of_edge, **attr):
-        u, v = u_of_edge, v_of_edge
-        if u not in self._node:
-            self._adj[u] = self.adjlist_inner_frame_factory()
-            self._node[u] = self.node_attr_frame_factory()
-        if v not in self._node:
-            self._adj[v] = self.adjlist_inner_frame_factory()
-            self._node[v] = self.node_attr_frame_factory()
-        dataframe = self._adj[u].get(v, self.edge_attr_frame_factory())
-        dataframe.update(attr)
-        self._adj[u][v] = dataframe
-        self._adj[v][u] = dataframe
-
-    def update(self, edges=None, nodes=None):
+    '''
+    def update(self, nodes=None, edges=None,):
         if edges is not None:
             if nodes is not None:
                 [self.add_node(node) for node in nodes]
@@ -120,27 +112,45 @@ class nxNode(nx.Graph):
             [self.add_node(node) for node in nodes]
         else:
             return 'NetworkXError: empty update'
+    '''
 
     def __setattr__(self, v, k):
-        print("HERE")
         self.__dict__[v] = k
-        self.__node[v][self.id] = k
+        #print(id(self), type(k), k, v, '\n')
+        if v in self.attr_columns:
+            if type(k) == np.ndarray:
+                self.graph.loc[:,v].values[0] = k.round(2)
+            else: 
+                self.graph.loc[:,v].values[0] = k
 
     def __get_item(self, n):
+        idx = pd.IndexSlice
+        return self._adj.loc[idx[n,:],:]
 
-
+    def __contains__(self, n):
+        try:
+            return id(n) in self._node.index
+        except TypeError:
+            return false
+  
     def __name__(self):
         return 'nxnode'
 
+    def name(self):
+        return self.__name__()
+    
     def __iter__(self):
-        return iter(self._node)
+        return iter(self._node.index)
+
+    def __len__(self):
+        return len(self.__dict__)
 
     def __str__(self):
         return "".join(
             [
                 type(self).__name__,
                 f" named {self.name!r}" if self.name else "",
-                f" with {self.number_of_nodes()} nodes and {self.number_of_edges()} edges",
+                f" with {len(self)} nodes and {len(self)} edges",
 
             ]
         )
