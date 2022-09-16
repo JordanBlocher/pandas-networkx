@@ -7,12 +7,12 @@ import pandas as pd
 from pandas.tests.extension import base
 import pandas.util.testing as tm
 
-from .array import nxArray, nxDtype, make_data
+from .array import NXArray, NXDtype, make_data
 
 
 @pytest.fixture
 def dtype():
-    return nxDtype()
+    return NXDtype()
 
 
 @pytest.fixture
@@ -29,23 +29,23 @@ def data():
     while len(data[0]) == len(data[1]):
         data = make_data()
 
-    return nxArray(data)
+    return NXArray(data)
 
 
 @pytest.fixture
 def data_missing():
     """Length 2 array with [NA, Valid]"""
-    return nxArray([{}, {"a": 10}])
+    return NXArray([{}, {"a": 10}])
 
 
 @pytest.fixture
 def data_for_sorting():
-    return nxArray([{"b": 1}, {"c": 4}, {"a": 2, "c": 3}])
+    return NXArray([{"b": 1}, {"c": 4}, {"a": 2, "c": 3}])
 
 
 @pytest.fixture
 def data_missing_for_sorting():
-    return nxArray([{"b": 1}, {}, {"a": 4}])
+    return NXArray([{"b": 1}, {}, {"a": 4}])
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def na_cmp():
 
 @pytest.fixture
 def data_for_grouping():
-    return nxArray(
+    return NXArray(
         [
             {"b": 1},
             {"b": 1},
@@ -74,7 +74,7 @@ def data_for_grouping():
     )
 
 
-class Basenx:
+class BaseNX:
     # NumPy doesn't handle an array of equal-length UserDicts.
     # The default assert_series_equal eventually does a
     # Series.values, which raises. We work around it by
@@ -83,10 +83,10 @@ class Basenx:
         if left.dtype.name == "nx":
             assert left.dtype == right.dtype
             left = pd.Series(
-                nxArray(left.values.astype(object)), index=left.index, name=left.name
+                NXArray(left.values.astype(object)), index=left.index, name=left.name
             )
             right = pd.Series(
-                nxArray(right.values.astype(object)),
+                NXArray(right.values.astype(object)),
                 index=right.index,
                 name=right.name,
             )
@@ -113,15 +113,15 @@ class Basenx:
         tm.assert_frame_equal(left, right, *args, **kwargs)
 
 
-class TestDtype(Basenx, base.BaseDtypeTests):
+class TestDtype(BaseNX, base.BaseDtypeTests):
     pass
 
 
-class TestInterface(Basenx, base.BaseInterfaceTests):
+class TestInterface(BaseNX, base.BaseInterfaceTests):
     def test_custom_asserts(self):
         # This would always trigger the KeyError from trying to put
         # an array of equal-length UserDicts inside an ndarray.
-        data = nxArray(
+        data = NXArray(
             [
                 collections.UserDict({"a": 1}),
                 collections.UserDict({"b": 2}),
@@ -140,14 +140,14 @@ class TestInterface(Basenx, base.BaseInterfaceTests):
             self.assert_frame_equal(a.to_frame(), b.to_frame())
 
 
-class TestConstructors(Basenx, base.BaseConstructorsTests):
+class TestConstructors(BaseNX, base.BaseConstructorsTests):
     @pytest.mark.skip(reason="not implemented constructor from dtype")
     def test_from_dtype(self, data):
         # construct from our dtype & string dtype
         pass
 
 
-class TestReshaping(Basenx, base.BaseReshapingTests):
+class TestReshaping(BaseNX, base.BaseReshapingTests):
     @pytest.mark.skip(reason="Different definitions of NA")
     def test_stack(self):
         """
@@ -163,11 +163,11 @@ class TestReshaping(Basenx, base.BaseReshapingTests):
         return super().test_unstack(data, index)
 
 
-class TestGetitem(Basenx, base.BaseGetitemTests):
+class TestGetitem(BaseNX, base.BaseGetitemTests):
     pass
 
 
-class TestMissing(Basenx, base.BaseMissingTests):
+class TestMissing(BaseNX, base.BaseMissingTests):
     @pytest.mark.skip(reason="Setting a dict as a scalar")
     def test_fillna_series(self):
         """We treat dictionaries as a mapping in fillna, not a scalar."""
@@ -184,7 +184,7 @@ class TestReduce(base.BaseNoReduceTests):
     pass
 
 
-class TestMethods(Basenx, base.BaseMethodsTests):
+class TestMethods(BaseNX, base.BaseMethodsTests):
     @unhashable
     def test_value_counts(self, all_data, dropna):
         pass
@@ -208,15 +208,15 @@ class TestMethods(Basenx, base.BaseMethodsTests):
     def test_sort_values_missing(self, data_missing_for_sorting, ascending):
         super().test_sort_values_missing(data_missing_for_sorting, ascending)
 
-    @pytest.mark.skip(reason="combine for nxArray not supported")
+    @pytest.mark.skip(reason="combine for NXArray not supported")
     def test_combine_le(self, data_repeated):
         pass
 
-    @pytest.mark.skip(reason="combine for nxArray not supported")
+    @pytest.mark.skip(reason="combine for NXArray not supported")
     def test_combine_add(self, data_repeated):
         pass
 
-    @pytest.mark.skip(reason="combine for nxArray not supported")
+    @pytest.mark.skip(reason="combine for NXArray not supported")
     def test_combine_first(self, data):
         pass
 
@@ -236,7 +236,7 @@ class TestMethods(Basenx, base.BaseMethodsTests):
         super().test_searchsorted(data_for_sorting)
 
 
-class TestCasting(Basenx, base.BaseCastingTests):
+class TestCasting(BaseNX, base.BaseCastingTests):
     @pytest.mark.skip(reason="failing on np.array(self, dtype=str)")
     def test_astype_str(self):
         """This currently fails in NumPy on np.array(self, dtype=str) with
@@ -249,7 +249,7 @@ class TestCasting(Basenx, base.BaseCastingTests):
 # internals has trouble setting sequences of values into scalar positions.
 
 
-class TestGroupby(Basenx, base.BaseGroupbyTests):
+class TestGroupby(BaseNX, base.BaseGroupbyTests):
     @unhashable
     def test_groupby_extension_transform(self):
         """
@@ -276,7 +276,7 @@ class TestGroupby(Basenx, base.BaseGroupbyTests):
         super().test_groupby_extension_agg(as_index, data_for_grouping)
 
 
-class TestArithmeticOps(Basenx, base.BaseArithmeticOpsTests):
+class TestArithmeticOps(BaseNX, base.BaseArithmeticOpsTests):
     def test_error(self, data, all_arithmetic_operators):
         pass
 
@@ -294,9 +294,9 @@ class TestArithmeticOps(Basenx, base.BaseArithmeticOpsTests):
         return super()._check_divmod_op(s, op, other, exc=TypeError)
 
 
-class TestComparisonOps(Basenx, base.BaseComparisonOpsTests):
+class TestComparisonOps(BaseNX, base.BaseComparisonOpsTests):
     pass
 
 
-class TestPrinting(Basenx, base.BasePrintingTests):
+class TestPrinting(BaseNX, base.BasePrintingTests):
     pass

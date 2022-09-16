@@ -1,11 +1,11 @@
 import numpy as np
 import networkx as nx
-from node import Node
-from nxnode import nxNode
+from nx import nxNode
 import random
-
 from termcolor import colored
 import seaborn as sns
+
+from models import Node
 
 #rocket = sns.color_palette('rocket')
 #mako = sns.color_palette('mako')

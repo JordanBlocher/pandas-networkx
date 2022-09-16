@@ -1,6 +1,6 @@
 """Test extension array for storing nested data in a pandas container.
 
-The nxArray stores lists of dictionaries. The storage mechanism is a list,
+networkx stores lists of dictionaries. The storage mechanism is a list,
 not an ndarray.
 
 Note:
@@ -24,7 +24,7 @@ from pandas.core.dtypes.base import ExtensionDtype
 from pandas.core.arrays import ExtensionArray
 
 
-class nxDtype(ExtensionDtype):
+class NXDtype(ExtensionDtype):
     type = abc.Mapping
     name = "nx"
     na_value = UserDict()
@@ -37,7 +37,7 @@ class nxDtype(ExtensionDtype):
         -------
         type
         """
-        return nxArray
+        return NXArray
 
     @classmethod
     def construct_from_string(cls, string):
@@ -47,8 +47,8 @@ class nxDtype(ExtensionDtype):
             raise TypeError("Cannot construct a '{}' from '{}'".format(cls, string))
 
 
-class nxArray(ExtensionArray):
-    dtype = nxDtype()
+class NXArray(ExtensionArray):
+    dtype = NXDtype()
     __array_priority__ = 1000
 
     def __init__(self, values, dtype=None, copy=False):

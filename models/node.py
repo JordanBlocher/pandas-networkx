@@ -3,14 +3,7 @@ import numpy as np
 import networkx as nx
 import seaborn as sns
 import inspect
-from nxnode import nxNode
-np.set_printoptions(precision=2)
-
-import pandas as pd
-from pandas.core.dtypes.base import ExtensionDtype
-from pandas.api.extensions import register_extension_dtype
-from pandas.core.arrays import ExtensionArray, ExtensionScalarOpsMixin
-
+from nx import nxNode
 
 
 class Node(nxNode):
@@ -19,7 +12,6 @@ class Node(nxNode):
     ids = []
 
     def __init__(self, params):
-        super().__init__()
         rng = nx.utils.create_random_state()
         if len(Node.ids) > 1:
             self.id = rng.choice(Node.ids)
@@ -40,8 +32,16 @@ class Node(nxNode):
             self.type = 'buyer'
         else:
             self.type = 'seller'
-        self.pos = [self.id*20, self.color*params['flow'], 0]
-
+        self.pos = tuple((self.id*20, self.color*params['flow'], 0))
+        nxNode.__init__(self,
+                id=self.id,
+                price=self.price,
+                value=self.private_value, 
+                color=self.color, 
+                demand=self.demand,
+                pos=self.pos,
+                type=self.type
+                )
 
     def filter(self, node):
         return self.type == node.type
@@ -49,8 +49,10 @@ class Node(nxNode):
     def inv_filter(self, node):
         return self.type != node.type
 
+    '''
     def add_node(self, node):
         super().add_node(node,
+                id=node.id,
                 price=node.price,
                 value=node.private_value, 
                 color=node.color, 
@@ -68,7 +70,6 @@ class Node(nxNode):
                     ts=ts
                     )
     
-    '''
     def __to_dict__(self):
          return {
                 'demand': self.demand, 
@@ -112,20 +113,5 @@ class Node(nxNode):
             return str(self.id)
         else:
             return self
-
-    def __index__(self):
-        return int(self.id)
-   
-    def __lt__(self, other):
-        return self.id < other.id
-
-    def __le__(self, other):
-        return self.id <= other.id
-
-    def __gt__(self, other):
-        return self.id > other.id
-
-    def __ge__(self, other):
-        return self.id >= other.id
 
     '''

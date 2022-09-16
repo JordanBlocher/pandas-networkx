@@ -7,14 +7,12 @@ from termcolor import colored
 import time
 import networkx as nx
 
-from auctioneer import Auctioneer
-from auction import Auction
+from auction import Auction, Auctioneer
 
 import plotly.subplots as sp
 import plotly.graph_objects as go
 import plotly.colors as cm 
 from models import Clock
-from node import Node
 
 sns.set()
 cscale1 = 'portland'

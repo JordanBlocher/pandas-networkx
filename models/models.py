@@ -1,7 +1,6 @@
 import numpy as np
 import networkx as nx
-from node import Node
-from nxnode import nxNode
+from nx import nxNode
 
 import time
 
@@ -41,10 +40,3 @@ class Clock(nxNode):
         return str(self.ts)
 
 
-class Intersection:
-
-    I = nx.Graph()
-
-    def __init__(self):
-        pass
-        #G.add_node(
