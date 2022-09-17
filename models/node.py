@@ -4,28 +4,28 @@ np.set_printoptions(precision=2)
 import networkx as nx
 import seaborn as sns
 import inspect
-from nx import nxNode, id
+from nx import nxNode, name
 
 class Node(nxNode):
     
-    id = 0
-    ids = []
+    name = 0
+    names = []
 
     def __init__(self, params):
         rng = nx.utils.create_random_state()
-        if len(Node.ids) > 1:
-            self.id = rng.choice(Node.ids)
-            Node.ids.remove(self.id)
+        if len(Node.names) > 1:
+            self.name = rng.choice(Node.names)
+            Node.names.remove(self.name)
         else:
-            Node.id +=1
-            self.id = Node.id
+            Node.name +=1
+            self.name = Node.name
         
         self.demand = rng.randint(1, 
                             params.max_quantity
                             ) * params.flow
         self.value = 0
         self.price = round(
-                        params.init_factor*params.price[self.id], 
+                        params.init_factor*params.price[self.name], 
                       2
                       )
         self.color = int(self.price)*params.flow
@@ -34,7 +34,7 @@ class Node(nxNode):
         else:
             self.type = 'seller'
         self.pos = tuple(np.array([
-                            self.id*20, 
+                            self.name*20, 
                             self.color*params.flow,
                             0
                             ], dtype=int)
@@ -56,8 +56,8 @@ class Node(nxNode):
 
     def add_edge(self, u, v, ts=None):
         super().add_edge(u ,v,
-                    source=id(u),
-                    target=id(v),
+                    source=name(u),
+                    target=name(v),
                     capacity=u.price, 
                     ts=ts
                     )

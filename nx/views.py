@@ -40,44 +40,68 @@ class NodeView(Mapping, Set):
 
     def __setstate__(self, state):
         self._nodes = state["_nodes"]
+        self._data = state["_data"]
 
-    def __init__(self, graph, data=None):
+    def __init__(self, graph, data=True):
         self._nodes = graph._node
-        self._data = self._nodes.loc[:]
+        self._data = data
 
     # Mapping methods
     def __len__(self):
-        return len(self._nodes.index)
+        return len(self._nodes.loc)
 
     def __iter__(self):
         data = self._data
-        return self._nodes.T.iteritems()
+        if data is False:
+            return self._nodes.iterrows()
+        if data is True:
+            return self._nodes.iteritems()
+        return (
+            (n, df[data] if data in df else None)
+            for n, df in self._nodes.items()
+        )
 
     def __getitem__(self, n):
         print("GETITEM", n)
-        f = self._nodes.loc[n]
-        data = self_data
-        return f[data] if data in f else f
+        df = self._nodes.loc[n]
+        data = self._data
+        if data is False or data is True:
+            return df
+        return df[data] if data in df else None
+
+    def __setitem__(self, n, k, v):
+        print("SETITEM")
+        print(n, k, v)
+        try:
+            self._nodes.loc[n,k] = v
+        except KeyError(f"Node {n} not found"):
+            return
 
     def __getattr__(self, k):
         print("GETATTR", k)
-        if k in self._nodes.columns:
+        if k in self._nodes:
             return self._nodes[k] 
 
     # Set methods
     def __contains__(self, n):
+        print("CONTAINS", n)
         try:
-            node_in = n in self._nodes
+            node_in = n in self._nodes.index
+            print("node_in", node_in, n)
         except TypeError:
-            n, d = n
-            return n in self._nodes and self.loc[n] == d
-        if node_in is True:
-            return node_in
+            try:
+                n, d = n.name, n
+                print("n,d s_in", n, d)
+                return n in self._nodes.index and self[n].all() == d.all()
+            except (TypeError, ValueError):
+                return False
         try:
-            n, d = n
+            n, d = n, self._nodes.loc[n]
         except (TypeError, ValueError):
             return False
-        return n in self._nodes and self.loc[n] == d
+        print(d)
+        print(self[n])
+        return n in self._nodes.index and self[n].all() == d.all()
 
     def __setitem__(self, n, k, value):
         print("SETITEM")
@@ -94,15 +118,19 @@ class NodeView(Mapping, Set):
     def __str__(self):
         return str(list(self))
 
-    def __index__(self, n):
+    def __index__(self):
         print("INDEX")
-        try:
-            return self._nodes.loc[n]
-        except:
-            return self._nodes.loc
+        return self._nodes.loc
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self._nodes.loc[:]})"
+        name = self.__class__.__name__
+        if self._data is False:
+            return f"{self[:]}"
+        if self._data is True:
+            return f"{self[:]}"
+        return f"{self}, data={self._data!r}"
+
+
 
 
 class AdjView(Mapping):

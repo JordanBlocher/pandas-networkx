@@ -1,6 +1,6 @@
 import numpy as np
 import networkx as nx
-from nx import nxNode, id
+from nx import nxNode, name
 from .node import Node
 
 import time
@@ -12,7 +12,7 @@ class Clock(nxNode):
 
     def __init__(self, seller, winner, neighbors, ts):
         self.ts = ts
-        self.winner = winner.id
+        self.winner = winner.name
         nxNode.__init__(self,
                         winner=self.winner,
                         )
@@ -39,8 +39,8 @@ class Clock(nxNode):
    
     def add_edge(self, u, v, ts=None):
         super().add_edge(u ,v,
-                    source=id(u),
-                    target=id(v),
+                    source=name(u),
+                    target=name(v),
                     ts=ts
                     )
 

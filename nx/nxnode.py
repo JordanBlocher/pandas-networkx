@@ -23,17 +23,16 @@ class _CachedPropertyResetterNode:
         if "nodes" in od:
             del od["nodes"]
 
-def id(obj):
+def name(obj):
     if type(obj) == int:
         return obj
     elif type(obj) == tuple:
-        return (id(obj[0]), id(obj[1]))
-    elif 'id' in obj.__dict__.keys():
-       return obj.id
+        return (name(obj[0]), name(obj[1]))
+    elif 'name' in obj.__dict__.keys():
+       return obj.name
     elif 'ts' in obj.__dict__.keys():
        return obj.ts
     else:
-        obj.__dict__['id'] = obj.__hash__()
         return obj.__hash__()
 
 def nodes(n):
@@ -70,9 +69,9 @@ class nxNode(nx.Graph):
 
     def add_node(self, new_node, **attr):
         if new_node not in self:
-            self._node=self._node.append(new_node.graph.T[id(new_node)])
+            self._node=self._node.append(new_node.graph.T[name(new_node)])
         else:  
-            self._node.loc[id(new_node)] = new_node.graph.loc[id(new_node)]
+            self._node.loc[name(new_node)] = new_node.graph.loc[name(new_node)]
 
     def add_edge(self, u, v, **attr):
         self.add_node(u)
@@ -99,7 +98,7 @@ class nxNode(nx.Graph):
     def get_edge_data(self, u, v):
         idx = pd.IndexSlice
         if (u,v) in self:
-            return self._adj.loc[idx[id(u,v)]]
+            return self._adj.loc[idx[name(u,v)]]
         else:
             return pd.Series()
             
@@ -108,11 +107,11 @@ class nxNode(nx.Graph):
  
     def remove_node(self, n):
         if type(n) == Node:
-            Node.ids.append(n.id)
+            Node.names.append(n.name)
         if n in self:
             for e in self[n].T:
                 self._adj = self._adj.drop(e)
-            self._node = self._node.drop(id(n))
+            self._node = self._node.drop(name(n))
 
     def nodes(self):
         return NodeView(self)
@@ -145,7 +144,7 @@ class nxNode(nx.Graph):
             newg._node = self._node
         if n:
             idx = pd.IndexSlice
-            newg._adj = self._adj.loc[ (idx[id(n),:] or idx[:,id(n)]), : ]
+            newg._adj = self._adj.loc[ (idx[name(n),:] or idx[:,name(n)]), : ]
         else:
             newg._adj = self._adj
 
@@ -174,20 +173,20 @@ class nxNode(nx.Graph):
 
     def __getattr__(self, k):
         print("GETATTR", k)
-        #print(id(self), type(k), k, v, '\n')
+        #print(name(self), type(k), k, v, '\n')
         if k in self.attr_columns:
             return self.graph.loc[k]
 
     def __getitem__(self, n):
         idx = pd.IndexSlice
-        if n in self:
-            return self._adj.loc[ [self._adj.loc[idx[id(n),:]] & self._adj.loc[idx[:,id(n)]]], : ]
+        if n in self._adj:
+            return self._adj.loc[ [self._adj.loc[idx[name(n),:]] & self._adj.loc[idx[:,name(n)]]], : ]
 
     def __contains__(self, n):
         if type(n) == tuple:
-            return id(n) in self._adj.index
+            return name(n) in self._adj.index
         else:
-            return id(n) in self._node.index
+            return name(n) in self._node.index
   
     def __name__(self):
         return 'nxnode'
@@ -205,7 +204,7 @@ class nxNode(nx.Graph):
         return "".join(
             [
                 type(self).__name__,
-                f" {self.id}" if self.id else "{self.ts}",
+                f" {self.name}" if self.name else "{self.ts}",
                 f" with {len(self._node)} nodes and {len(self._adj)} edges",
                 f"{self.graph}",
             ]
