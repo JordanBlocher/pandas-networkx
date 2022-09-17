@@ -3,7 +3,7 @@ import networkx as nx
 import pandas as pd
 from termcolor import colored
 import os
-from globals import *
+from .globals import *
 
 def make_params():
     global nbuyers, nsellers, noise, rounds, auction_round
@@ -27,7 +27,7 @@ def make_params():
     seller_inc = [.1, 1]
     seller_dec = [.1, 1]
 
-    return dict(
+    return pd.Series(dict(
     auction_round = auction_round,
     start_time = start_time,
     option = option,
@@ -39,11 +39,11 @@ def make_params():
     # formula for EQ
     nnodes = nnodes,
     g_max = max(min(nbuyers, nsellers)-2, 3),
-    noise_factor = dict(
+    noise_factor = pd.Series(dict(
                         low = noise_low,
                         high = noise_high,
-        ),
-    buyer = dict(# negative flow wants to send out 
+        )),
+    buyer = pd.Series(dict(# negative flow wants to send out 
             init_factor = buyer_init_factor,
             max_price = buyer_max_price,
             max_quantity = buyer_max_quantity,
@@ -62,8 +62,8 @@ def make_params():
                         buyer_max_price,
                         size=nnodes+15
                         )
-            ),
-    seller = dict( 
+            )),
+    seller = pd.Series(dict( 
             init_factor=seller_init_factor,
             max_price=seller_max_price,
             max_quantity=seller_max_quantity,
@@ -83,7 +83,7 @@ def make_params():
                         size=nnodes+15
                         )
             
-            )
-        )
+            ))
+        ))
 
 

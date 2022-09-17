@@ -112,11 +112,11 @@ class Auctioneer(Auction):
             if len(neighbors) > 1:
                 if buyer.price <  min([node.price for node in neighbors]):
                     buyer.price = round(
-                                    buyer.price * params['buyer']['inc'][buyer.id],
+                                    buyer.price * params.buyerinc[buyer.id],
                                     2)
                 elif buyer.price >  max([node.price for node in neighbors]):
                     buyer.price = round(
-                                    buyer.price * params['buyer']['dec'][buyer.id],
+                                    buyer.price * params.buyerdec[buyer.id],
                                     2)
         [self.add_edge(buyer, node) for node in node_list]
         self.save_frame()
@@ -139,7 +139,7 @@ class Auctioneer(Auction):
         self.add_edge(winner, seller)
         [self.add_edge(winner, buyer) for buyer in self.buyer_list(seller)]
 
-        #Clock(seller, winner, self.buyer_list(winner), ts)
+        Clock(seller, winner, self.buyer_list(winner), ts)
 
         return winner
 

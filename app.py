@@ -12,9 +12,9 @@ from dash.dependencies import Input, Output
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
-from market_sim import MarketSim
+from sim import MarketSim
 from params import make_params
-from globals import *
+from params.globals import *
 
 def get_new_data():
     global auction_round

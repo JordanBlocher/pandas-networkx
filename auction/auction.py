@@ -6,90 +6,50 @@ from termcolor import colored
 import seaborn as sns
 
 from models import Node
-
-#rocket = sns.color_palette('rocket')
-#mako = sns.color_palette('mako')
-#cool = sns.color_palette('cool')
+from nx import nxNode, id
 
 
-class Auction(nx.Graph):
+class Auction(nxNode):
 
     def make_graph(self):
         global params, rng
         rng = nx.utils.create_random_state()
         params = self.make_params()
-        self.start_time = params['start_time']
+        self.start_time = params.start_time
 
-        for node in range(params['nsellers']):
-            new_node = Node(params['seller'])
+        for node in range(params.nsellers):
+            new_node = Node(params.seller)
             self.add_node(new_node)
-        for node in range(params['nbuyers']):
-            new_node = Node(params['buyer'])
+        for node in range(params.nbuyers):
+            new_node = Node(params.buyer)
             self.add_star(new_node)
         
         pos = nx.spectral_layout(self, dim=3)
-        for node in self.node_list():
+        for node in self.nodes():
             node.pos = pos[node] 
         self.print_auction()
      
 
-    def node_view(self, node_filter=None, other_node=None):
-        if other_node != None:
-            g = nx.ego_graph(
-                        self, 
-                        other_node, 
-                        1, # number of hops
-                        False # include center node
+    def nodes(self, ntype=None, v=None):
+        return self.subgraph_view(ntype, v)
+
+    def buyers(self, v=None):
+        return self.nodes('buyer', v)
+ 
+    def sellers(self, v=None):
+        return self.nodes('seller', v)
+               
+    def add_star(self, node, v=None):
+        nbrs = rsample(
+                        self.nodes(~node, v),
+                        params.g_max
                         )
-            if node_filter:
-                g = nx.subgraph_view(g, filter_node=node_filter)
-        elif node_filter:
-            g = nx.subgraph_view(self, filter_node=node_filter)
-        else:
-            g = self
-        return g      
+        if v:
+            nbrs.append(v)
+        super().add_star(self, [node] + nbrs)
+        for w in list(nbrs):
+            self.add_edge(node, w)
 
-    def node_list(self, node_filter=None, other_node=None):
-        return list(
-                    self.node_view(
-                                node_filter, 
-                                other_node
-                                  ).nodes
-                    )
-
-    def add_star(self, node, other_node=None):
-        neighbors = rsample(
-                        self.node_list(
-                                inv_type_filter(node.type)
-                                ),
-                                params['g_max']
-                        )
-        if other_node:
-            neighbors.append(other_node)
-        nx.add_star(self, [node] + neighbors)
-        for v in list(neighbors):
-            self.add_edge(node, v)
-
-    '''
-    def add_node(self, node):
-        super().add_node(node,
-                price=node.price,
-                value=node.private_value, 
-                color=node.color, 
-                demand=node.demand,
-                pos=node.pos,
-                type=node.type
-                )
-
-    def add_edge(self, source, target, ts=None):
-        super().add_edge(
-                    source,
-                    target,
-                    capacity = source.price,
-                    weight = source.demand,
-                    ts=ts
-                    )
-    '''
     def update_auction(self, winner, seller):
         global params
         seller.demand += 1
@@ -97,7 +57,7 @@ class Auction(nx.Graph):
         self.update_demand(winner)
         self.update_demand(seller)
         for ntype in ['seller', 'buyer']:
-            if self.nnodes(type_filter(ntype))-params['g_max']<2:
+            if self.nnodes(ntype)-params.g_max<2:
                new_node = Node(params[ntype]) 
                self.add_star(new_node)  
         '''
@@ -122,10 +82,10 @@ class Auction(nx.Graph):
         print(self.nnodes())
         params = self.make_params()
         for ntype in ['buyer', 'seller']:
-            cnt = self.nnodes(type_filter(ntype))-params['n'+ntype+'s']
+            cnt = self.nnodes(ntype)-params['n'+ntype+'s']
             if cnt > 2:
                 self.update_nodes(cnt, ntype)
-            params['nnodes'] = self.nbuyers()+self.nsellers()
+            params.nnodes = self.nnodes()
         return params
   
     def update_nodes(self, cnt, ntype):
@@ -135,29 +95,18 @@ class Auction(nx.Graph):
                 new_node = Node(params[ntype])
                 self.add_star(new_node) 
             else:
-                choice = random.choice(
-                                self.node_list(
-                                        type_filter(ntype)
-                                            )
-                                    )
-                Node.ids.append(choice.id)
+                choice = random.choice(self.nodes(ntype))
                 self.remove_node(choice)
-        params['n'+ntype+'s']=self.nnodes(type_filter(ntype))
+        params['n'+ntype+'s']=self.nnodes(ntype)
     
-    def nnodes(self, node_filter=None):
-        return len(self.node_list(node_filter))
+    def nnodes(self, ntype=None, v=None):
+        return len(self.nodes(ntype, v))
 
-    def seller_list(self, node=None):
-        return self.node_list(seller_filter, node)
-
-    def buyer_list(self, node=None):
-        return self.node_list(buyer_filter, node)
-
-    def nbuyers(self):
-        return len(self.buyer_list())
+    def nbuyers(self, v=None):
+        return self.nnodes('buyer', v)
 
     def nsellers(self):
-        return len(self.seller_list())
+        return self.nnodes('seller', v)
 
     def print_auction(self, data=False):
         if data:
@@ -184,20 +133,3 @@ def rsample(x, maxn):
                     )
     return [x[z] for z in u]
 
-def buyer_filter(node):
-    return node.type == 'buyer'
-
-def seller_filter(node):
-    return node.type == 'seller'
-
-def type_filter(ntype):
-    if ntype == 'seller':
-        return seller_filter
-    else:
-        return buyer_filter
-
-def inv_type_filter(ntype):
-    if ntype == 'seller':
-        return buyer_filter
-    else:
-        return seller_filter

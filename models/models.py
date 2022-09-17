@@ -1,42 +1,46 @@
 import numpy as np
 import networkx as nx
-from nx import nxNode
+from nx import nxNode, id
+from .node import Node
 
 import time
 
 class Clock(nxNode):
 
     ts = 0
-    T = nx.Graph()
+    T = nxNode()
 
     def __init__(self, seller, winner, neighbors, ts):
         self.ts = ts
-        self.winner = winner
+        self.winner = winner.id
+        nxNode.__init__(self,
+                        winner=self.winner,
+                        )
         self.add_node(seller)
         self.add_node(winner)
         self.add_edge(self, seller, ts=self.ts)
         for v in neighbors:
             self.winner.add_node(v)
             self.winner.add_edge(self.winner, v)
-        Clock.add_node(self)
-        for node in [n for n in Clock.nodes]: 
+        Clock.T.add_node(self)
+        for node in Clock.T.nodes(): 
             if type(node) == Node:
                 continue
             if self.ts - node.ts < 0.5:
                 for nb in neighbors:
-                    for np in node:
+                    for np in node_ts:
                         if np == nb:
-                            if Clock.has_edge(self, node):
+                            if Clock.T.has_edge(self, node):
                                 ts=self.ts
                             else:
                                 ts=node.ts
                             self.winner.add_edge(nb, np, ts=ts)
-                            Clock.add_edge(self, node, ts=ts)
-                    
-    def __repr__(self):
-        return str(self.ts)
-
-    def __str__(self):
-        return str(self.ts)
-
+                            Clock.T.add_edge(self, node, ts=ts)
+   
+    def add_edge(self, u, v, ts=None):
+        super().add_edge(u ,v,
+                    source=id(u),
+                    target=id(v),
+                    ts=ts
+                    )
 
