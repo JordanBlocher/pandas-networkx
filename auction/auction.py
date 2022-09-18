@@ -6,7 +6,7 @@ from termcolor import colored
 import seaborn as sns
 
 from models import Node
-from nx import nxNode, id
+from nx import nxNode, name
 
 
 class Auction(nxNode):
@@ -31,7 +31,9 @@ class Auction(nxNode):
      
 
     def nodes(self, ntype=None, v=None):
-        return self.subgraph_view(ntype, v)
+        g = self.subgraph_view(ntype, v)
+        print("G", nxNode.nodes(g))
+        return nxNode.nodes(g)
 
     def buyers(self, v=None):
         return self.nodes('buyer', v)
@@ -46,9 +48,8 @@ class Auction(nxNode):
                         )
         if v:
             nbrs.append(v)
-        super().add_star(self, [node] + nbrs)
-        for w in list(nbrs):
-            self.add_edge(node, w)
+        star_nodes = [node]+nbrs
+        nxNode.add_star(self, star_nodes)
 
     def update_auction(self, winner, seller):
         global params
@@ -64,15 +65,15 @@ class Auction(nxNode):
         The sellers can't add buyers to thier auction. If they
             do it causes instability.
         '''
-        for buyer in self.buyer_list():
-            if len(self.seller_list(buyer)) < 2:
-                self.add_edge(buyer, random.choice(self.seller_list()))
+        for buyer in self.buyers():
+            if len(self.sellers(buyer)) < 2:
+                self.add_edge(buyer, random.choice(self.sellers()))
          
     def update_demand(self, node):
         global params
         if node in self.nodes:
             if node.demand == 0:
-                Node.ids.append(node.id)
+                Node.names.append(node.name)
                 self.remove_node(node)
                 new_node = Node(params[node.type]) 
                 self.add_star(new_node)
@@ -119,16 +120,16 @@ class Auction(nxNode):
         print(colored(self.nbuyers(), 'green'), end=' ')
         print(colored(self.nsellers(), 'magenta')) 
         for seller in self.seller_list():
-            print(colored(seller.id, 'magenta'), end=' ') 
+            print(colored(seller.name, 'magenta'), end=' ') 
             for buyer in self.buyer_list(seller):
-                print(colored(buyer.id, 'green'), end=' ')
+                print(colored(buyer.name, 'green'), end=' ')
             print('')
         return
  
 # randomly sample from a list 
 def rsample(x, maxn):
     u = random.sample(
-                    [n for n in range(len(x))],
+                    [n for n in range(1,len(x)+1)],
                     random.randint(2,maxn)
                     )
     return [x[z] for z in u]
