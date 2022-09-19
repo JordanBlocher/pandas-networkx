@@ -10,7 +10,12 @@ import pandas as pd
 
 
     
-  
+'''
+The auction holds all the live data, buyers and sellers
+and passes a dataframe up to the auctioneer every time a 
+players price changes. The memory in the auction is flash, 
+and is updated the next time a player challenges the price.
+'''
 
 class Auction(nxNode):
 

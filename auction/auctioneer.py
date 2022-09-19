@@ -17,6 +17,14 @@ from nxn import nxNode, name
 
 import multiprocessing as mp
 
+'''
+The auctioneer tells the auction where it is in time w.r.t to 
+the round it is playing, and stores history of how player's 
+connectivity influences the price over time. The auctioneer 
+also controls the clock, which determines where in time the price
+was influenced by previous rounds.
+'''
+
 class Auctioneer(Auction):
 
     auctions_history=[]
