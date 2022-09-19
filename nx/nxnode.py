@@ -5,7 +5,7 @@ import inspect
 import pandas as pd
 np.set_printoptions(precision=2)
 
-from .views import AdjView, EdgeView, NodeView, AtlasView
+from .views import AdjView, EdgeView, NodeView, AtlasView, EdgeSet
 from collections.abc import Mapping, Set
 
 class _CachedPropertyResetterAdj:
@@ -48,6 +48,7 @@ class nxNode(nx.Graph):
 
     reserved_columns = [] 
     attr_columns = [] 
+    G = None
 
     def __init__(self, **attr):
         attr_columns = list(attr.keys())
@@ -62,6 +63,11 @@ class nxNode(nx.Graph):
         self.attr_columns = attr_columns
         self._node = self.node_attr_frame_factory()  
         self._adj = self.edge_attr_frame_factory() 
+        G = self.G()
+
+    def G(self):
+        return self
+
 
     def add_node(self, new_node, **attr):
         #print("ADDING NODE", new_node.name, type(new_node),type(self))
@@ -125,7 +131,7 @@ class nxNode(nx.Graph):
 
     def nodes(self, data=False):
         return NodeView(self, data)
- 
+
     def edges(self, data=False):
         return EdgeView(self, data)
 
@@ -178,10 +184,16 @@ class nxNode(nx.Graph):
 
     def __getitem__(self, n):
         idx = pd.IndexSlice
-        if n in self._node.loc[ self._node.type == 'seller'].index:
-            return self._adj.loc[:,idx[name(n)],:]
-        elif n in self._node.loc[ self._node.type == 'buyer'].index:
-            return self._adj.loc[idx[name(n),:],:]
+        nbrs = pd.Series()
+        #if n in self._node.loc[ self._node.type == 'seller'].index:
+        #    nbrs = self._adj.loc[:,idx[name(n)],:]
+        if n in self._node.loc[ self._node.type == 'buyer'].index:
+            nbrs = self._adj.loc[idx[name(n),:],:]
+            #try:
+            #    nbrs = nbrs.append(self._adj.loc[:,idx[name(n)],:])
+            #except KeyError:
+            #    return nbrs
+        return nbrs.loc[n]
 
     def __contains__(self, n):
         if type(n) == tuple:
@@ -210,6 +222,12 @@ class nxNode(nx.Graph):
                 f"{self.graph}",
             ]
         )
+
+def nodes(G):
+    return G.nodes()
+
+def edges(G):
+    return G.edges()
 
 
 # distance = capacity

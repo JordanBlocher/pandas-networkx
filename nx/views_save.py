@@ -46,6 +46,7 @@ class NodeView(Mapping, Set):
         self._data = state["_data"]
 
     def __init__(self, graph, data=False):
+        print("NODEVIEW")
         self._nodes = graph._node
         self._data = data
 
@@ -68,7 +69,7 @@ class NodeView(Mapping, Set):
         df = self._nodes.loc[n]
         data = self._data
         if data is False or data is True:
-            return self._nodes.loc[n]
+            return df
         return df[data] if data in df else None
 
     def __setitem__(self, n, k, v):
@@ -78,10 +79,8 @@ class NodeView(Mapping, Set):
             return
 
     def __getattr__(self, k):
-        try:
+        if k in self._nodes:
             return self._nodes[k] 
-        except KeyError:
-            return
 
     # Set methods
     def __contains__(self, n):
@@ -99,6 +98,11 @@ class NodeView(Mapping, Set):
             return False
         return n in self._nodes.index and self[n].all() == d.all()
 
+    def __setitem__(self, n, k, value):
+        try:
+            self._nodes.loc[n,k] = value
+        except KeyError(f"Node {n} not found"):
+            return
 
     @classmethod
     def _from_iterable(cls, it):
@@ -108,6 +112,7 @@ class NodeView(Mapping, Set):
         return str(list(self))
 
     def __index__(self):
+        print("INDEX")
         return self._nodes.loc
 
     def __repr__(self):
@@ -129,26 +134,16 @@ class AdjView(AtlasView):
 
 class EdgeView(Set, Mapping):
 
-    __slots__ = (
-        "_nodes", 
-        "_graph", 
-        "_data", 
-        "_adjframe", 
-        "_report")
+    __slots__ = ("_adjframe", "_graph", "_nodes_nbrs", "_data", "_report")
 
     def __getstate__(self):
-        return {
-                "_graph": self._graph, 
-                "_adjframe": self._adjframe, 
-                "_nodes": self._nodes,
-                "_data": self._data
-                }
+        return {"_graph": self._graph, "_adjframe": self._adj, "_data": self._data}
 
     def __setstate__(self, state):
         self._graph = state["_graph"]
         self._adjframe = state["_adjframe"]
         self._data = state["_data"]
-        self._nodes = state["_nodes"]
+        self._nodes_nbrs = ((n, (v for u, v in self[n].T)) for n in self.nodes())
 
     @classmethod
     def _from_iterable(cls, it):
@@ -156,46 +151,67 @@ class EdgeView(Set, Mapping):
 
     def __init__(self, G, data=False):
         self._graph = G
-        self._adjframe = self._graph._adj.loc
         out_nodes = set([u for u,v in G._adj.index])
-        self._nodes = out_nodes
+        self._adjframe = pd.Series([
+                               dict([(
+                                        v,
+                                        G._adj.loc[
+                                               (u,v)
+                                              ]
+                                    ) for u, v in G[n].T
+                                ]) for n in out_nodes
+                            ], index=out_nodes
+                            )
+        print(self._adjframe)
         self._data = data
+        self._nodes_nbrs = self._adjframe.items
         if data is True:
-            self._report = lambda n: (n, self._adjframe[n])
+            self._report = lambda n, nbr, df: (n, nbr, df)
         elif data is False:
-            self._report = lambda n: (n, list(self._adjframe[n].index))
+            self._report = lambda n, nbr, df: (n, nbr)
+        else:  # data is attribute name
+            self._report = (
+                lambda n, nbr, df: (n, nbr, df[data])
+                if data in df
+                else (n, nbr, None)
+            )
 
     # Set methods
     def __len__(self):
-        return sum(len(list(self._adjframe[n].index)) for n in self._nodes)
+        return sum(len(nbrs) for n, nbrs in self._nodes_nbrs())
 
     def __iter__(self):
-        return (self._report(n) for n in self._nodes)
+        for n, nbrs in self._nodes_nbrs():
+            print("n",n,'\n')
+            print("nbrs", type(nbrs), nbrs, '\n')
+            for nbr, df in nbrs.items():
+                print("nbr", nbr,'\n')
+                print("df", df,'\n')
+                print("report", self._report(n, nbr, df),'\n')
+        return (
+            self._report(n, nbr, df)
+            for n, nbrs in self._nodes_nbrs()
+            for nbr, df in nbrs.items()
+        )
 
     def __contains__(self, e):
         try:
             u, v = e
-            return v in list(self._adjframe[u].index)
+            return v in self._adjframe[u]
         except (KeyError, ValueError):
             return False
-
-    def __getattr__(self, a):
-        try:
-            self._adjframe=self._graph._adj[str(a)]
-            return self._adjframe
-        except KeyError:
-            return
 
     # Mapping Methods
     def __getitem__(self, e):
         try:
             u, v = e
-            return self._adjframe[u].T[v]
+            return self._adjframe[u][v]
         except TypeError:
             try:
-                return self._adjframe[e].T
+                return self._adjframe[e]
             except KeyError:
                 return
+    #[[df for nbr, df in nbrs()] for n, nbrs in self._nodes_nbrs()]
 
     # String Methods
     def __str__(self):
@@ -205,22 +221,61 @@ class EdgeView(Set, Mapping):
         return f"{list(self)}"
 
 
-class EdgeSet(EdgeView):
-    
-    __slots__ = ()
+class FilterAdjacency(Mapping):  
 
-    def __setitem__(self, k, v):
-        print("SET ITEM", k, v)
-        if type(v) == np.ndarray:
-            v = v.round(2)
-        try:
-            u, v = k
-            self._adjframe[u].T[v] = v
-        except TypeError:
-            try:
-                self._adjframe[k] = v
-            except KeyError:
-                return
- 
+    def __init__(self, d, NODE_OK, EDGE_OK):
+        self._atlas = d
+        self.NODE_OK = NODE_OK
+        self.EDGE_OK = EDGE_OK
+
+    def __len__(self):
+        return sum(1 for n in self)
+
+    def __iter__(self):
+        try:  # check that NODE_OK has attr 'nodes'
+            node_ok_shorter = 2 * len(self.NODE_OK.nodes) < len(self._atlas)
+        except AttributeError:
+            node_ok_shorter = False
+        if node_ok_shorter:
+            return (n for n in self.NODE_OK.nodes if n in self._atlas)
+        return (n for n in self._atlas if self.NODE_OK(n))
+
+    def __getitem__(self, node):
+        if node in self._atlas and self.NODE_OK(node):
+
+            def new_node_ok(nbr):
+                return self.NODE_OK(nbr) and self.EDGE_OK(node, nbr)
+
+            return FilterAtlas(self._atlas[node], new_node_ok)
+        raise KeyError(f"Key {node} not found")
+
+    def copy(self):
+        try:  # check that NODE_OK has attr 'nodes'
+            node_ok_shorter = 2 * len(self.NODE_OK.nodes) < len(self._atlas)
+        except AttributeError:
+            node_ok_shorter = False
+        if node_ok_shorter:
+            return {
+                u: {
+                    v: d
+                    for v, d in self._atlas[u].items()
+                    if self.NODE_OK(v)
+                    if self.EDGE_OK(u, v)
+                }
+                for u in self.NODE_OK.nodes
+                if u in self._atlas
+            }
+        return {
+            u: {v: d for v, d in nbrs.items() if self.NODE_OK(v) if self.EDGE_OK(u, v)}
+            for u, nbrs in self._atlas.items()
+            if self.NODE_OK(u)
+        }
+
+    def __str__(self):
+        return str({nbr: self[nbr] for nbr in self})
+
+    def __repr__(self):
+        name = self.__class__.__name__
+        return f"{name}({self._atlas!r}, {self.NODE_OK!r}, {self.EDGE_OK!r})"
 
 
