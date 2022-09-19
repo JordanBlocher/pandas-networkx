@@ -6,7 +6,7 @@ from termcolor import colored
 import seaborn as sns
 
 from models import Node
-from nx import nxNode, name
+from nx import nxNode, name, spectral_layout
 
 
 class Auction(nxNode):
@@ -24,26 +24,29 @@ class Auction(nxNode):
             new_node = Node(params.buyer)
             self.add_star(new_node)
         
-        pos = nx.spectral_layout(self, dim=3)
-        for node in self.nodes():
-            node.pos = pos[node] 
         self.print_auction()
+        #pos = spectral_layout(self, dim=3)
+        #for node in self.nodes():
+         #   node.pos = pos[node] 
+
+        self.buyers = self.buyers()
+        self.nbuyers = self.nbuyers()
+        self.sellers = self.sellers()
+        self.nsellers = self.nsellers()
      
 
-    def nodes(self, ntype=None, v=None):
+    def node_view(self, ntype=None, v=None):
+        try:
+            nbrs = self[v]
+        except KeyError:
+            return
+        print(nbrs)
         g = self.subgraph_view(ntype, v)
-        print("G", nxNode.nodes(g))
         return nxNode.nodes(g)
 
-    def buyers(self, v=None):
-        return self.nodes('buyer', v)
- 
-    def sellers(self, v=None):
-        return self.nodes('seller', v)
-               
     def add_star(self, node, v=None):
         nbrs = rsample(
-                        self.nodes(~node, v),
+                        self.node_view(~node, v),
                         params.g_max
                         )
         if v:
@@ -67,7 +70,7 @@ class Auction(nxNode):
         '''
         for buyer in self.buyers():
             if len(self.sellers(buyer)) < 2:
-                self.add_edge(buyer, random.choice(self.sellers()))
+                self.add_edge(buyer, random.choice(self.sellers))
          
     def update_demand(self, node):
         global params
@@ -83,7 +86,7 @@ class Auction(nxNode):
         print(self.nnodes())
         params = self.make_params()
         for ntype in ['buyer', 'seller']:
-            cnt = self.nnodes(ntype)-params['n'+ntype+'s']
+            cnt = self.nnodes({'type':ntype})-params['n'+ntype+'s']
             if cnt > 2:
                 self.update_nodes(cnt, ntype)
             params.nnodes = self.nnodes()
@@ -96,33 +99,34 @@ class Auction(nxNode):
                 new_node = Node(params[ntype])
                 self.add_star(new_node) 
             else:
-                choice = random.choice(self.nodes(ntype))
+                choice = random.choice(self.node_view(ntype))
                 self.remove_node(choice)
-        params['n'+ntype+'s']=self.nnodes(ntype)
-    
-    def nnodes(self, ntype=None, v=None):
-        return len(self.nodes(ntype, v))
+        params['n'+ntype+'s']=self.nnodes({'type':ntype})
 
-    def nbuyers(self, v=None):
-        return self.nnodes('buyer', v)
-
+    def buyers(self):
+        return self.nodes({'type':'buyer'})
+    def sellers(self):
+        return self.nodes({'type':'seller'})
+    def nbuyers(self):
+        return len(self.buyers)
     def nsellers(self):
-        return self.nnodes('seller', v)
+        return len(self.sellers)
 
     def print_auction(self, data=False):
         if data:
-            for seller in self.seller_list():
+            for seller in self.sellers:
+                print("SELLER", seller)
                 print(colored(seller, 'magenta'), end=' ') 
             print('')
-            for buyer in self.buyer_list():
+            for buyer in self.buyers:
                 print(colored(buyer, 'green'), end=' ')
             print('')
-        print(colored(self.nbuyers(), 'green'), end=' ')
-        print(colored(self.nsellers(), 'magenta')) 
-        for seller in self.seller_list():
-            print(colored(seller.name, 'magenta'), end=' ') 
-            for buyer in self.buyer_list(seller):
-                print(colored(buyer.name, 'green'), end=' ')
+        print(colored(str(self.nbuyers)+' buyers', 'green'), end=' ')
+        print(colored(str(self.nsellers)+' sellers', 'magenta')) 
+        for seller in self.sellers():
+            print(colored(seller, 'magenta'), end=' ') 
+            for buyer in self.node_view('seller', seller):
+                print(colored(buyer, 'green'), end=' ')
             print('')
         return
  

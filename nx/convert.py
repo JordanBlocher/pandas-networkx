@@ -16,30 +16,27 @@ from networkx.utils import not_implemented_for
 
 def to_numpy_array(
     G,
-    nodelist=None,
     dtype=None,
-    order=None,
-    multigraph_weight=sum,
-    weight="weight",
+    weight="capacity",
     nonedge=0.0,
 ):
     import numpy as np
 
-    if nodelist is None:
-        nodelist = list(G)
+    nodelist = list(G)
+    print(nodelist)
     nlen = len(nodelist)
 
     # Input validation
     nodeset = set(nodelist)
     if nodeset - set(G):
-        raise nx.NetworkXError(f"Nodes {nodeset - set(G)} in nodelist is not in G")
+        raise "Nodes {nodeset - set(G)} in nodelist is not in G"
     if len(nodeset) < nlen:
-        raise nx.NetworkXError("nodelist contains duplicates.")
+        raise "nodelist contains duplicates."
 
-    A = np.full((nlen, nlen), fill_value=nonedge, dtype=dtype, order=order)
+    A = np.full((nlen, nlen), fill_value=nonedge, dtype=dtype)
 
     # Corner cases: empty nodelist or graph without any edges
-    if nlen == 0 or G.number_of_edges() == 0:
+    if nlen == 0 or len(G._adj.index) == 0:
         return A
 
     # If dtype is structured and weight is None, use dtype field names as
@@ -49,55 +46,40 @@ def to_numpy_array(
         if weight is None:
             edge_attrs = dtype.names
         else:
-            raise ValueError(
-                "Specifying `weight` not supported for structured dtypes\n."
-                "To create adjacency matrices from structured dtypes, use `weight=None`."
-            )
+            raise ValueError
 
     # Map nodes to row/col in matrix
     idx = dict(zip(nodelist, range(nlen)))
-    if len(nodelist) < len(G):
-        G = G.subgraph(nodelist).copy()
+    #if len(nodelist) < len(G):
+    #    G = G.subgraph(nodelist).copy()
 
     # Collect all edge weights and reduce with `multigraph_weights`
-    if G.is_multigraph():
-        if edge_attrs:
-            raise nx.NetworkXError(
-                "Structured arrays are not supported for MultiGraphs"
-            )
-        d = defaultdict(list)
-        for u, v, wt in G.edges(data=weight, default=1.0):
-            d[(idx[u], idx[v])].append(wt)
-        i, j = np.array(list(d.keys())).T  # indices
-        wts = [multigraph_weight(ws) for ws in d.values()]  # reduced weights
-    else:
-        i, j, wts = [], [], []
+    i, j, wts = [], [], []
 
-        # Special branch: multi-attr adjacency from structured dtypes
-        if edge_attrs:
-            # Extract edges with all data
-            for u, v, data in G.edges(data=True):
-                i.append(idx[u])
-                j.append(idx[v])
-                wts.append(data)
-            # Map each attribute to the appropriate named field in the
-            # structured dtype
-            for attr in edge_attrs:
-                attr_data = [wt.get(attr, 1.0) for wt in wts]
-                A[attr][i, j] = attr_data
-                if not G.is_directed():
-                    A[attr][j, i] = attr_data
-            return A
+    # Special branch: multi-attr adjacency from structured dtypes
+    if edge_attrs:
 
-        for u, v, wt in G.edges(data=weight, default=1.0):
+        # Extract edges with all data
+        for u, v, data in G.edge_map():
             i.append(idx[u])
             j.append(idx[v])
-            wts.append(wt)
+            wts.append(data)
+        # Map each attribute to the appropriate named field in the
+        # structured dtype
+        for attr in edge_attrs:
+            attr_data = [wt.get(attr) for wt in wts]
+            A[attr][i, j] = attr_data
+            A[attr][j, i] = attr_data
+        return A
+    print(G.edge_map(weight=weight))
+    for u, v, wt in G.edge_map(weight=weight):
+        i.append(idx[u])
+        j.append(idx[v])
+        wts.append(wt)
 
     # Set array values with advanced indexing
     A[i, j] = wts
-    if not G.is_directed():
-        A[j, i] = wts
+    A[j, i] = wts
 
     return A
 

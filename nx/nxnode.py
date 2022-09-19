@@ -6,7 +6,6 @@ import pandas as pd
 np.set_printoptions(precision=2)
 
 from .views import AdjView, EdgeView, NodeView, AtlasView, EdgeSet
-from collections.abc import Mapping, Set
 
 class _CachedPropertyResetterAdj:
     def __set__(self, obj, value):
@@ -91,25 +90,23 @@ class nxNode(nx.Graph):
             self._adj = self._adj.append(df)
     
     def add_star(self, nodes_for_star, **attr):
-        print("FOR STAR", nodes_for_star, '\n')
+        #print("FOR STAR", list(nodes_for_star), '\n')
         nlist = iter(nodes_for_star)
         try:
             v = next(nlist)
         except StopIteration:
             return
         self.add_node(v)
-        print("CENTER", v, '\n')
-        print("NODES",self.nodes())
+        #print("CENTER", v, '\n')
         edges = ((v, n) for n in nlist)
         for v, n in edges:
-            print("HERE",n)
+            #print("HERE",n)
             self.add_edge(v, n, 
                     source=name(v),
                     target=name(n),
                     capacity=v.price, 
                     ts=None
                     )
-        print(self.edges())
 
     def get_edge_data(self, u, v):
         idx = pd.IndexSlice
@@ -142,21 +139,33 @@ class nxNode(nx.Graph):
         newg = self.__class__()
         newg._graph = self
         newg.graph = self.graph
-        newg._NODE_OK = ntype
+        print("Nodes", newg.nodes({'type': 'buyer'}))
         if ntype:
             newg._node = self._node.loc[ self._node.type == ntype ]
         else:
             newg._node = self._node
-        print("Nodes", newg._node)
+        print("Nodes", newg.nodes())
         if n:
             idx = pd.IndexSlice
             newg._adj = self[n]
         else:
             newg._adj = self._adj
-        print("adj", newg._adj)
+        #print("adj", newg._adj)
 
         return newg
- 
+     
+    def nnodes(self, data=False):
+        return len(self.nodes(data))
+
+    def edge_map(self, weight=None):
+        emap = []
+        for u,v in self.edges(data=True):
+            if weight:
+                emap += [(u, w, v.T[w][weight]) for w in v.T]
+            else:
+                emap += [(u, w, dict(v.T[w])) for w in v.T]
+        return emap
+
     '''
     def update(self, nodes=None, edges=None,):
         if edges is not None:
@@ -185,14 +194,14 @@ class nxNode(nx.Graph):
     def __getitem__(self, n):
         idx = pd.IndexSlice
         nbrs = pd.Series()
-        #if n in self._node.loc[ self._node.type == 'seller'].index:
-        #    nbrs = self._adj.loc[:,idx[name(n)],:]
+        if n in self._node.loc[ self._node.type == 'seller'].index:
+            nbrs = self._adj.loc[:,idx[name(n)],:]
         if n in self._node.loc[ self._node.type == 'buyer'].index:
             nbrs = self._adj.loc[idx[name(n),:],:]
-            #try:
-            #    nbrs = nbrs.append(self._adj.loc[:,idx[name(n)],:])
-            #except KeyError:
-            #    return nbrs
+            try:
+                nbrs = nbrs.append(self._adj.loc[:,idx[name(n)],:])
+            except KeyError:
+                return nbrs
         return nbrs.loc[n]
 
     def __contains__(self, n):
