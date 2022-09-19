@@ -195,18 +195,24 @@ class nxNode(nx.Graph):
         idx = pd.IndexSlice
         nbrs = pd.Series()
         if n in self._node.loc[ self._node.type == 'seller'].index:
-            nbrs = self._adj.loc[:,idx[name(n)],:]
+            nbrs = self._adj.loc[idx[:,name(n)],:]
+            #print(self._adj.loc[idx[:,name(n)],:])
+            return nbrs
         if n in self._node.loc[ self._node.type == 'buyer'].index:
+            #print(self._adj.loc[idx[name(n),:],:])
             nbrs = self._adj.loc[idx[name(n),:],:]
             try:
-                nbrs = nbrs.append(self._adj.loc[:,idx[name(n)],:])
+                #print(self._adj.loc[idx[:,name(n)],:])
+                nbrs = nbrs.append(self._adj.loc[idx[:,name(n)],:])
             except KeyError:
                 return nbrs
-        return nbrs.loc[n]
+            return nbrs
 
     def __contains__(self, n):
         if type(n) == tuple:
             return name(n) in self._adj.index
+        elif type(n) == str:
+            return n in self._node.columns
         else:
             return name(n) in self._node.index
   

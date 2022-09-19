@@ -1,7 +1,11 @@
 import pytest
+from .auction import Auction
+from params import make_params
+from params.globals import *
+from models import Node
 
-@pytest.fixture
-def auction():
+#@pytest.fixture
+def test_auction():
     auction = Auction()
     auction.make_params = make_params
     auction.make_graph()

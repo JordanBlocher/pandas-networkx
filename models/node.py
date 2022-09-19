@@ -4,7 +4,7 @@ np.set_printoptions(precision=2)
 import networkx as nx
 import seaborn as sns
 import inspect
-from nx import nxNode, name
+from nxn import nxNode, name
 
 class Node(nxNode):
     

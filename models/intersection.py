@@ -1,6 +1,6 @@
 import numpy as np
 import networkx as nx
-from nx import nxNode
+from nxn import nxNode
 
 import time
 

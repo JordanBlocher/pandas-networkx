@@ -13,6 +13,7 @@ import plotly.express as px
 import networkx as nx
 from auction import Auction
 from models import Clock, Intersection
+from nxn import nxNode, name
 
 import multiprocessing as mp
 
@@ -22,18 +23,20 @@ class Auctioneer(Auction):
     df = pd.Series()
     fnum=0
 
+    def __init__(self):
+        self.type='auctioneer'
+        Auction.__init__(self)
+
     def save_frame(self, start_time=0):
         ts = round(time.time()-start_time,4),
-        nodes = sorted(self.node_list(), key=lambda x: x.id)
+        nodes = sorted(self.nodes(), key=lambda x: name(x))
    
-        adj_mat = nx.to_pandas_adjacency(self)
-        edges = nx.to_pandas_edgelist(self)
         df = pd.Series({
                         'f' : self.fnum,
                         'ts' : ts,
                         str(self.fnum) : {
-                            'adj': nx.to_pandas_adjacency(self),
-                            'edges': nx.to_pandas_edgelist(self),
+                            'nodes': self._node,
+                            'edges': self._adj
                             },
                     })
         self.fnum+=1
@@ -44,11 +47,11 @@ class Auctioneer(Auction):
         return self.df
 
     def run_local_auction(self, seller):
-        node_list = self.buyer_list(seller) 
+        node_list = self.node_filter('buyer', seller) 
         seller.price = self.calculate_market_price(seller, node_list)
         bid_history=[] 
         for buyer in node_list:
-            if len(self.node_list(buyer.inv_filter, buyer)) < 2:
+            if len(self.node_filter('seller', buyer)) < 2:
                 #node_list.remove(buyer)
                 print("SKIPPING BUYER", buyer)
                 continue
@@ -81,12 +84,12 @@ class Auctioneer(Auction):
         self.df = pd.Series()
         self.auctions_history.append([])
 
-        for seller in self.seller_list():
+        for seller in self.sellers:
             self.print_auction()
 
             if seller not in self:
                 continue
-            if len(self.buyer_list(seller)) < 1:
+            if len(self.node_filter('buyer', seller)) < 1:
                 continue
             auction = self.run_local_auction(seller)
             
@@ -124,7 +127,7 @@ class Auctioneer(Auction):
  
     def second_price_winner(self, seller):
         global auction_round, params
-        buyer_list = self.buyer_list(seller)
+        buyer_list = self.filter_node('buyer', seller)
         sorted_buyers = sorted(buyer_list, key=lambda x: x.price, reverse=True)
         winner = sorted_buyers[0]
         winner.private_value = round(winner.price,2)
@@ -137,9 +140,9 @@ class Auctioneer(Auction):
 
         ts = round(time.time()-params['start_time'],4)
         self.add_edge(winner, seller)
-        [self.add_edge(winner, buyer) for buyer in self.buyer_list(seller)]
+        [self.add_edge(winner, buyer) for buyer in self.filter_node('buyer', seller)]
 
-        Clock(seller, winner, self.buyer_list(winner), ts)
+        Clock(seller, winner, self.filter_node('buyer', winner), ts)
 
         return winner
 

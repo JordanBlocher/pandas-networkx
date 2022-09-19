@@ -1,6 +1,6 @@
 import numpy as np
 import networkx as nx
-from nx import nxNode, name
+from nxn import nxNode, name
 from .node import Node
 
 import time

@@ -1,15 +1,18 @@
 import numpy as np
 import networkx as nx
-from nx import nxNode
 import random
 from termcolor import colored
 import seaborn as sns
 
 from models import Node
-from nx import nxNode, name, spectral_layout
+from nxn import nxNode, name, spectral_layout
 
 
 class Auction(nxNode):
+
+    def __init__(self):
+        self.type='auction'
+        nxNode.__init__(self)
 
     def make_graph(self):
         global params, rng
@@ -19,12 +22,15 @@ class Auction(nxNode):
 
         for node in range(params.nsellers):
             new_node = Node(params.seller)
+            print(new_node)
             self.add_node(new_node)
+        print(self)
         for node in range(params.nbuyers):
             new_node = Node(params.buyer)
+            print(new_node)
             self.add_star(new_node)
         
-        self.print_auction()
+        #self.print_auction()
         #pos = spectral_layout(self, dim=3)
         #for node in self.nodes():
          #   node.pos = pos[node] 
@@ -35,18 +41,18 @@ class Auction(nxNode):
         self.nsellers = self.nsellers()
      
 
-    def node_view(self, ntype=None, v=None):
+    def node_filter(self, ntype=None, v=None):
         try:
             nbrs = self[v]
         except KeyError:
             return
         print(nbrs)
-        g = self.subgraph_view(ntype, v)
-        return nxNode.nodes(g)
+        #g = self.subgraph_view(ntype, v)
+        #return nxNode.nodes(g)
 
     def add_star(self, node, v=None):
         nbrs = rsample(
-                        self.node_view(~node, v),
+                        self.node_filter(~node, v),
                         params.g_max
                         )
         if v:
@@ -69,7 +75,7 @@ class Auction(nxNode):
             do it causes instability.
         '''
         for buyer in self.buyers():
-            if len(self.sellers(buyer)) < 2:
+            if len(self.node_filter(buyer)) < 2:
                 self.add_edge(buyer, random.choice(self.sellers))
          
     def update_demand(self, node):
@@ -86,7 +92,7 @@ class Auction(nxNode):
         print(self.nnodes())
         params = self.make_params()
         for ntype in ['buyer', 'seller']:
-            cnt = self.nnodes({'type':ntype})-params['n'+ntype+'s']
+            cnt = self.nnodes(ntype)-params['n'+ntype+'s']
             if cnt > 2:
                 self.update_nodes(cnt, ntype)
             params.nnodes = self.nnodes()
@@ -99,14 +105,14 @@ class Auction(nxNode):
                 new_node = Node(params[ntype])
                 self.add_star(new_node) 
             else:
-                choice = random.choice(self.node_view(ntype))
+                choice = random.choice(self.node_filter(ntype))
                 self.remove_node(choice)
-        params['n'+ntype+'s']=self.nnodes({'type':ntype})
+        params['n'+ntype+'s']=self.nnodes(ntype)
 
     def buyers(self):
-        return self.nodes({'type':'buyer'})
+        return self._node.loc[ self._node.type == 'seller']
     def sellers(self):
-        return self.nodes({'type':'seller'})
+        return self._node.loc[ self._node.type == 'buyer']
     def nbuyers(self):
         return len(self.buyers)
     def nsellers(self):
@@ -115,7 +121,6 @@ class Auction(nxNode):
     def print_auction(self, data=False):
         if data:
             for seller in self.sellers:
-                print("SELLER", seller)
                 print(colored(seller, 'magenta'), end=' ') 
             print('')
             for buyer in self.buyers:
@@ -123,7 +128,7 @@ class Auction(nxNode):
             print('')
         print(colored(str(self.nbuyers)+' buyers', 'green'), end=' ')
         print(colored(str(self.nsellers)+' sellers', 'magenta')) 
-        for seller in self.sellers():
+        for seller in self.sellers:
             print(colored(seller, 'magenta'), end=' ') 
             for buyer in self.node_view('seller', seller):
                 print(colored(buyer, 'green'), end=' ')

@@ -158,19 +158,36 @@ class EdgeView(Set, Mapping):
         self._graph = G
         self._adjframe = self._graph._adj.loc
         out_nodes = set([u for u,v in G._adj.index])
+        in_nodes = set([v for u,v in G._adj.index])
+        #buyers = set(G._node.loc[G.node.type == 'buyer'])
+        #out_nodes.append(in_nodes.intersection(buyers))
+        #in_nodes = in_nodes.difference(buyers)
+        #self._nodes = [out_nodes, in_nodes]
         self._nodes = out_nodes
+        print(self._nodes)
         self._data = data
         if data is True:
-            self._report = lambda n: (n, self._adjframe[n])
+            self._report = lambda n, nbr, df: (n, nbr, self._adjframe[n])
         elif data is False:
-            self._report = lambda n: (n, list(self._adjframe[n].index))
+            self._report = lambda n, nbr, df: (n, nbr)
+            #self._report = lambda n, nbr, df: (n, list(self._adjframe[n].index))
+        else:  # data is attribute name
+            self._report = (
+                lambda n, nbr, df: (n, nbr, df[data])
+                if data in df
+                else (n, nbr, 1.0)
+            )
 
     # Set methods
     def __len__(self):
-        return sum(len(list(self._adjframe[n].index)) for n in self._nodes)
+        return sum(len(nbrs) for n, nbrs in self._adjframe.items())
 
     def __iter__(self):
-        return (self._report(n) for n in self._nodes)
+        return (
+            self._report(n, nbr, None)
+            for n in self._nodes
+            for nbr in self._adjframe[n].index
+            )
 
     def __contains__(self, e):
         try:

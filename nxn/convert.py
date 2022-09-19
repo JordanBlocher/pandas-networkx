@@ -3,11 +3,6 @@ import numpy as np
 import networkx as nx
 import pandas as pd
 
-from collections.abc import Collection, Generator, Iterator
-from collections.abc import Mapping
-
-from nx import AdjView, EdgeView, NodeView
-
 import itertools
 import warnings
 from collections import defaultdict
