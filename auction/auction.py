@@ -6,7 +6,11 @@ import seaborn as sns
 
 from models import Node
 from nxn import nxNode, name, spectral_layout
+import pandas as pd
 
+
+    
+  
 
 class Auction(nxNode):
 
@@ -22,43 +26,54 @@ class Auction(nxNode):
 
         for node in range(params.nsellers):
             new_node = Node(params.seller)
-            print(new_node)
+            print("ADDING", new_node.type, new_node.name, '\n', new_node) 
             self.add_node(new_node)
-        print(self)
         for node in range(params.nbuyers):
             new_node = Node(params.buyer)
-            print(new_node)
-            self.add_star(new_node)
+            print("ADDING", new_node.type, new_node.name, '\n', new_node) 
+            self.add_filter_star(new_node)
         
-        #self.print_auction()
-        #pos = spectral_layout(self, dim=3)
+        pos = spectral_layout(self, dim=3)
+        #print("POS", pos)
         #for node in self.nodes():
          #   node.pos = pos[node] 
 
-        self.buyers = self.buyers()
-        self.nbuyers = self.nbuyers()
-        self.sellers = self.sellers()
+        self.buyers   = self.buyers()
+        self.nbuyers  = self.nbuyers()
+        self.sellers  = self.sellers()
         self.nsellers = self.nsellers()
+        self.print_auction()
      
 
     def node_filter(self, ntype=None, v=None):
-        try:
-            nbrs = self[v]
-        except KeyError:
-            return
-        print(nbrs)
-        #g = self.subgraph_view(ntype, v)
-        #return nxNode.nodes(g)
+        #print("IN FILTER", ntype, "node", v,'\n------------------------------\n')
+        idx=pd.IndexSlice
+        nbrs = pd.DataFrame()
+        if v is not None:
+            for n,u in self[v].T:
+                nbrs = nbrs.append(self._node.loc[n]) 
+            #print("\nNBRS1", nbrs.T)
+            if ntype is not None:
+                nbrs = nbrs.loc[ nbrs.type == ntype ]
+                #print("\nNBRSTYPE2", nbrs.T)
+            #print("\n---------------------------------\n")
+        else:
+            nbrs = self._node.loc[ self._node.type == ntype ]
+        print("\n---------------------------------\nNBRS", nbrs.index)
+        return nbrs
 
-    def add_star(self, node, v=None):
+    def add_filter_star(self, node, v=None):
+        print("ADDING", node, "STAR")
+
         nbrs = rsample(
-                        self.node_filter(~node, v),
+                        self.node_filter(node.inv(), v),
                         params.g_max
                         )
+        print("SAMPLED", nbrs)
         if v:
             nbrs.append(v)
         star_nodes = [node]+nbrs
-        nxNode.add_star(self, star_nodes)
+        self.add_star(star_nodes)
 
     def update_auction(self, winner, seller):
         global params
@@ -69,14 +84,14 @@ class Auction(nxNode):
         for ntype in ['seller', 'buyer']:
             if self.nnodes(ntype)-params.g_max<2:
                new_node = Node(params[ntype]) 
-               self.add_star(new_node)  
+               self.add_filter_star(new_node)  
         '''
         The sellers can't add buyers to thier auction. If they
             do it causes instability.
         '''
         for buyer in self.buyers():
             if len(self.node_filter(buyer)) < 2:
-                self.add_edge(buyer, random.choice(self.sellers))
+                self.add_edge(buyer, random_choice(self.sellers))
          
     def update_demand(self, node):
         global params
@@ -85,11 +100,11 @@ class Auction(nxNode):
                 Node.names.append(node.name)
                 self.remove_node(node)
                 new_node = Node(params[node.type]) 
-                self.add_star(new_node)
+                self.add_filter_star(new_node)
+                print("ADDED NODE", new_node.name)
 
     def update(self):
         global params
-        print(self.nnodes())
         params = self.make_params()
         for ntype in ['buyer', 'seller']:
             cnt = self.nnodes(ntype)-params['n'+ntype+'s']
@@ -103,20 +118,23 @@ class Auction(nxNode):
         for n in range(abs(cnt)):
             if cnt < 0:
                 new_node = Node(params[ntype])
-                self.add_star(new_node) 
+                self.add_filter_star(new_node) 
             else:
-                choice = random.choice(self.node_filter(ntype))
+                #print("CHOOSING FROM", self.node_filter(ntype))
+                choice = random_choice(self.node_filter(ntype))
+                #print("CHOICE", choice,'\n-------------------\n')
+                Node.names.append(name(choice))
                 self.remove_node(choice)
         params['n'+ntype+'s']=self.nnodes(ntype)
 
     def buyers(self):
-        return self._node.loc[ self._node.type == 'seller']
+        return self._node.loc[ self._node.type == 'buyer'].T
     def sellers(self):
-        return self._node.loc[ self._node.type == 'buyer']
+        return self._node.loc[ self._node.type == 'seller'].T
     def nbuyers(self):
-        return len(self.buyers)
+        return len(self.buyers.T)
     def nsellers(self):
-        return len(self.sellers)
+        return len(self.sellers.T)
 
     def print_auction(self, data=False):
         if data:
@@ -130,16 +148,30 @@ class Auction(nxNode):
         print(colored(str(self.nsellers)+' sellers', 'magenta')) 
         for seller in self.sellers:
             print(colored(seller, 'magenta'), end=' ') 
-            for buyer in self.node_view('seller', seller):
+            for buyer in self.node_filter('buyer', seller).T:
                 print(colored(buyer, 'green'), end=' ')
             print('')
         return
  
-# randomly sample from a list 
+# randomly sample from a list <-- should go in the class
 def rsample(x, maxn):
-    u = random.sample(
-                    [n for n in range(1,len(x)+1)],
-                    random.randint(2,maxn)
-                    )
-    return [x[z] for z in u]
+    if len(x) < 2:
+        raise ValueError 
+    if maxn < len(x):
+        u = random.sample(
+                        [n for n in list(x.index)],
+                        random.randint(2,maxn)
+                        )
+    else:
+        rsample(x, len(x)-1)
+    try:
+        #print("IN RSAMPLE", x.index)
+        #print("SAMPLE SET", u)
+        return [x.loc[z] for z in u]
+    except: 
+        raise(KeyError,ValueError)
+        return
 
+def random_choice(x):
+    n = random.sample(list(x.index),1)
+    return x.loc[n[0]]

@@ -18,7 +18,6 @@ def to_numpy_array(
     import numpy as np
 
     nodelist = list(G)
-    print(nodelist)
     nlen = len(nodelist)
 
     # Input validation
@@ -66,7 +65,7 @@ def to_numpy_array(
             A[attr][i, j] = attr_data
             A[attr][j, i] = attr_data
         return A
-    print(G.edge_map(weight=weight))
+    #print(G.edge_map(weight=weight))
     for u, v, wt in G.edge_map(weight=weight):
         i.append(idx[u])
         j.append(idx[v])

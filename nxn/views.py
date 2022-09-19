@@ -115,7 +115,7 @@ class NodeView(Mapping, Set):
         if self._data is False:
             return f"{list(self._nodes.T)}"
         if self._data is True:
-            return f"{self._nodes.loc[:]}"
+            return f"{self._nodes.T}"
         return f"{self}, data={self._data!r}"
 
 
@@ -164,16 +164,15 @@ class EdgeView(Set, Mapping):
         #in_nodes = in_nodes.difference(buyers)
         #self._nodes = [out_nodes, in_nodes]
         self._nodes = out_nodes
-        print(self._nodes)
         self._data = data
         if data is True:
-            self._report = lambda n, nbr, df: (n, nbr, self._adjframe[n])
+            self._report = lambda n,nbr,df: (n,nbr,self._adjframe[n].T[nbr])
         elif data is False:
-            self._report = lambda n, nbr, df: (n, nbr)
+            self._report = lambda n,nbr,df: (n,nbr)
             #self._report = lambda n, nbr, df: (n, list(self._adjframe[n].index))
         else:  # data is attribute name
             self._report = (
-                lambda n, nbr, df: (n, nbr, df[data])
+                lambda n,nbr,df: (n,nbr,df[n].T[nbr][data])
                 if data in df
                 else (n, nbr, 1.0)
             )

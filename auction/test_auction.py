@@ -1,8 +1,19 @@
 import pytest
 from .auction import Auction
+from .auctioneer import Auctioneer
 from params import make_params
 from params.globals import *
 from models import Node
+
+
+def test_auctioneer():
+    auctioneer = Auctioneer()
+    auctioneer.make_params = make_params
+    auctioneer.make_graph()
+    params = make_params()
+    auctioneer.save_frame(params.start_time)
+    return auctioneer
+
 
 #@pytest.fixture
 def test_auction():

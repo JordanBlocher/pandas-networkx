@@ -27,6 +27,9 @@ def name(obj):
         return obj
     elif type(obj) == tuple:
         return (name(obj[0]), name(obj[1]))
+    elif type(obj) == str:
+        print("KEY", obj)
+        return obj
     elif obj.name != None:
         return obj.name
     elif 'name' in obj.__dict__.keys():
@@ -119,8 +122,6 @@ class nxNode(nx.Graph):
         return (u,v) in self._adj.index
  
     def remove_node(self, n):
-        if type(n) == Node:
-            Node.names.append(n.name)
         if n in self:
             for e in self[n].T:
                 self._adj = self._adj.drop(e)
@@ -158,12 +159,12 @@ class nxNode(nx.Graph):
         return len(self.nodes(data))
 
     def edge_map(self, weight=None):
-        emap = []
-        for u,v in self.edges(data=True):
-            if weight:
-                emap += [(u, w, v.T[w][weight]) for w in v.T]
-            else:
-                emap += [(u, w, dict(v.T[w])) for w in v.T]
+        if weight:
+            emap = [(u, v, df[weight])
+                        for u,v,df in self.edges(data=True)]
+        else:
+            emap = [(u, v, dict(df)) 
+                        for u,v,df in self.edges(data=True)]
         return emap
 
     '''
@@ -194,11 +195,11 @@ class nxNode(nx.Graph):
     def __getitem__(self, n):
         idx = pd.IndexSlice
         nbrs = pd.Series()
-        if n in self._node.loc[ self._node.type == 'seller'].index:
+        if name(n) in self._node.loc[ self._node.type == 'seller'].index:
             nbrs = self._adj.loc[idx[:,name(n)],:]
             #print(self._adj.loc[idx[:,name(n)],:])
             return nbrs
-        if n in self._node.loc[ self._node.type == 'buyer'].index:
+        if name(n) in self._node.loc[ self._node.type == 'buyer'].index:
             #print(self._adj.loc[idx[name(n),:],:])
             nbrs = self._adj.loc[idx[name(n),:],:]
             try:

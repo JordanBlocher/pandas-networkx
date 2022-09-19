@@ -62,7 +62,7 @@ class Node(nxNode):
                     ts=ts
                     )
 
-    def __invert__(self):
+    def inv(self):
         if self.type == 'buyer':
             return 'seller'
         else:

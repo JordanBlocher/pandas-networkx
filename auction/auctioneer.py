@@ -34,10 +34,8 @@ class Auctioneer(Auction):
         df = pd.Series({
                         'f' : self.fnum,
                         'ts' : ts,
-                        str(self.fnum) : {
-                            'nodes': self._node,
-                            'edges': self._adj
-                            },
+                        'nodes': self._nodes,
+                        'edges': self._adj
                     })
         self.fnum+=1
         if self.df.empty:
@@ -47,18 +45,18 @@ class Auctioneer(Auction):
         return self.df
 
     def run_local_auction(self, seller):
-        node_list = self.node_filter('buyer', seller) 
+        node_list = self.node_filter('buyer', seller).T
         seller.price = self.calculate_market_price(seller, node_list)
         bid_history=[] 
         for buyer in node_list:
-            if len(self.node_filter('seller', buyer)) < 2:
+            if len(self.node_filter('seller', buyer).index) < 2:
                 #node_list.remove(buyer)
                 print("SKIPPING BUYER", buyer)
                 continue
             bid = self.calculate_consistent_bid(
                                             buyer, 
-                                            self.seller_list(buyer), 
-                                            self.buyer_list(buyer)
+                                            self.node_filter('seller', buyer).T, 
+                                            self.node_filter('buyer', buyer).T
                                             )
             bid_history.append(bid)
 
@@ -89,7 +87,7 @@ class Auctioneer(Auction):
 
             if seller not in self:
                 continue
-            if len(self.node_filter('buyer', seller)) < 1:
+            if len(self.node_filter('buyer', seller).index) < 1:
                 continue
             auction = self.run_local_auction(seller)
             
@@ -113,13 +111,13 @@ class Auctioneer(Auction):
             buyer.price = max(prices)
         if params['noise']:
             if len(neighbors) > 1:
-                if buyer.price <  min([node.price for node in neighbors]):
+                if buyer.price <  min([node.price for node in neighbors.T]):
                     buyer.price = round(
-                                    buyer.price * params.buyerinc[buyer.id],
+                                    buyer.price * params.buyer.inc[buyer.id],
                                     2)
                 elif buyer.price >  max([node.price for node in neighbors]):
                     buyer.price = round(
-                                    buyer.price * params.buyerdec[buyer.id],
+                                    buyer.price * params.buyer.dec[buyer.id],
                                     2)
         [self.add_edge(buyer, node) for node in node_list]
         self.save_frame()
@@ -140,7 +138,7 @@ class Auctioneer(Auction):
 
         ts = round(time.time()-params['start_time'],4)
         self.add_edge(winner, seller)
-        [self.add_edge(winner, buyer) for buyer in self.filter_node('buyer', seller)]
+        [self.add_edge(winner, buyer) for buyer in self.filter_node('buyer', seller).T]
 
         Clock(seller, winner, self.filter_node('buyer', winner), ts)
 
