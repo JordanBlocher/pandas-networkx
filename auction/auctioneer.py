@@ -49,6 +49,7 @@ class Auctioneer(Auction):
             self.df = df
         else:
             self.df = self.df.append(df)
+            print(df)
         return self.df
 
     def run_local_auction(self, seller):
