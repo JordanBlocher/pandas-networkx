@@ -7,11 +7,13 @@ def _process_params(G, center, dim):
     # Some boilerplate code.
     import numpy as np
 
+    '''
     if not isinstance(G, nxNode):
         empty_node = nxNode()
         for node in G.nodes(data=True):
             empty_node.add_node(node)
         G = empty_node
+    '''
 
     if center is None:
         center = np.zeros(dim)

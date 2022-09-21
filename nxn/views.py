@@ -58,7 +58,7 @@ class NodeView(Mapping, Set):
         if data is False:
             return iter(self._nodes.index)
         if data is True:
-            return self._nodes.iteritems()
+            return iter(self._nodes.items())
         return (
             (n, df[data] if data in df else None)
             for n, df in self._nodes.items()
@@ -113,10 +113,10 @@ class NodeView(Mapping, Set):
     def __repr__(self):
         name = self.__class__.__name__
         if self._data is False:
-            return f"{list(self._nodes.T)}"
+            return f"{list(self._nodes.index)}"
         if self._data is True:
-            return f"{self._nodes.T}"
-        return f"{self}, data={self._data!r}"
+            return f"{self._nodes.loc[:]}"
+        return f"{list(self._nodes.index)}"
 
 
 class AdjView(AtlasView):

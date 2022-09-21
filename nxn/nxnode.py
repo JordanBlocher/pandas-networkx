@@ -4,8 +4,11 @@ import networkx as nx
 import inspect
 import pandas as pd
 np.set_printoptions(precision=2)
-
+import inspect
+from params import make_params
+import time
 from .views import AdjView, EdgeView, NodeView, AtlasView, EdgeSet
+from termcolor import colored
 
 class _CachedPropertyResetterAdj:
     def __set__(self, obj, value):
@@ -23,62 +26,85 @@ class _CachedPropertyResetterNode:
             del od["nodes"]
 
 def name(obj):
-    if type(obj) == int:
-        return obj
-    elif type(obj) == tuple:
-        return (name(obj[0]), name(obj[1]))
-    elif type(obj) == str:
-        print("KEY", obj)
-        return obj
+    n = None
+    #stack = inspect.stack()
+    #for frame in stack:
+    #print('\n',frame.filename, frame.function) 
+    #print('\n',stack[1].filename, stack[1].function) 
+    if type(obj) == tuple:
+        n = (name(obj[0]), name(obj[1]))
+    elif type(obj) == int or type(obj) == float:
+        n = obj
     elif obj.name != None:
-        return obj.name
+        n = obj.name
+    elif type(obj) == str:
+        n = obj
     elif 'name' in obj.__dict__.keys():
-       return obj.name
+        n = obj.name
     elif 'ts' in obj.__dict__.keys():
-       return obj.ts
+        n = obj.ts
+    elif type(obj) == pd.Series:
+        n = obj.name
+    elif type(obj) == pd.DataFrame:
+        print(obj)
+        n = obj.name
     else:
-        return obj.__hash__()
+        n = obj.__hash__()
+    return n    
+    
+def TS():
+    params=make_params()
+    return round(time.time() - params.start_time,3)
 
 class nxNode(nx.Graph):
     
     _adj = _CachedPropertyResetterAdj()
     _node = _CachedPropertyResetterNode()
+    _graph = {}
 
-    graph_attr_frame_factory = pd.DataFrame
+    graph_attr_frame_factory = pd.Series
     node_attr_frame_factory = pd.DataFrame
+    node_attr_frame_factory.name = '_node'
     edge_attr_frame_factory = pd.DataFrame
+    edge_attr_frame_factory.name = '_adj' 
 
-    reserved_columns = [] 
-    attr_columns = [] 
     G = None
+    reserved_columns = []
+    attr_columns = []
 
     def __init__(self, **attr):
         attr_columns = list(attr.keys())
         columns = pd.Index(self.__dict__.keys())
-        self.graph = self.graph_attr_frame_factory(
+        self._node = self.node_attr_frame_factory(
                                             AtlasView(self.__dict__), 
                                             columns=columns
                                             )
-        self.reserved_columns=pd.Index(set(columns)-set(attr_columns))
-        if not self.reserved_columns.empty:
-            self.graph.set_index(list(self.reserved_columns), inplace=True)
-        self.attr_columns = attr_columns
-        self._node = self.node_attr_frame_factory()  
         self._adj = self.edge_attr_frame_factory() 
         G = self.G()
+        if len(self.reserved_columns) > 0:
+            self._node.set_index(self.reserved_columns, inplace=True)
+        print(self._graph)
 
     def G(self):
         return self
 
 
     def add_node(self, new_node, **attr):
-        #print("ADDING NODE", new_node.name, type(new_node),type(self))
-        if 'graph' in new_node.__dict__.keys():
-            new_node = new_node.graph.T[name(new_node)]
-        if new_node not in self:
-            self._node=self._node.append(new_node)
+        #print("ADDING", new_node.type, "NODE", name(new_node), type(new_node), TS())
+        reserved_columns = ['name']
+        attr_columns = ['demand', 'value', 'price', 'color', 'type', 'pos'] 
+ 
+        columns = pd.Index(new_node.__dict__.keys())
+        _node = self.node_attr_frame_factory(
+                                        AtlasView(new_node.__dict__), 
+                                        columns=attr_columns
+                                        )
+        _node.set_index(reserved_columns, inplace=True)
+        if _node in self:
+            self._node.loc[name(_node)] = _node
         else:  
-            self._node.loc[name(new_node)] = new_node
+            self._node=self._node.append(_node)
+        self._graph[name(new_node)] = new_node
 
     def add_edge(self, u, v, **attr):
         self.add_node(u)
@@ -88,29 +114,11 @@ class nxNode(nx.Graph):
         df.set_index(['source', 'target'], inplace=True)
         key = (u,v)
         if key in self:
-            self._adj.loc[name(key)] = df.loc[name(key)]
+            self._adj.loc[name(key)]=df.loc[name(key)]
+ 
         else:
             self._adj = self._adj.append(df)
     
-    def add_star(self, nodes_for_star, **attr):
-        #print("FOR STAR", list(nodes_for_star), '\n')
-        nlist = iter(nodes_for_star)
-        try:
-            v = next(nlist)
-        except StopIteration:
-            return
-        self.add_node(v)
-        #print("CENTER", v, '\n')
-        edges = ((v, n) for n in nlist)
-        for v, n in edges:
-            #print("HERE",n)
-            self.add_edge(v, n, 
-                    source=name(v),
-                    target=name(n),
-                    capacity=v.price, 
-                    ts=None
-                    )
-
     def get_edge_data(self, u, v):
         idx = pd.IndexSlice
         if (u,v) in self:
@@ -140,23 +148,22 @@ class nxNode(nx.Graph):
         newg = self.__class__()
         newg._graph = self
         newg.graph = self.graph
-        print("Nodes", newg.nodes({'type': 'buyer'}))
         if ntype:
             newg._node = self._node.loc[ self._node.type == ntype ]
         else:
             newg._node = self._node
-        print("Nodes", newg.nodes())
         if n:
             idx = pd.IndexSlice
             newg._adj = self[n]
         else:
             newg._adj = self._adj
-        #print("adj", newg._adj)
 
         return newg
      
-    def nnodes(self, data=False):
-        return len(self.nodes(data))
+    def nnodes(self):
+        return len(self._node.index)
+    def nedges(self):
+        return len(self._adj.index)
 
     def edge_map(self, weight=None):
         if weight:
@@ -179,19 +186,6 @@ class nxNode(nx.Graph):
             return 'NetworkXError: empty update'
     '''
 
-    def __setattr__(self, k, v):
-        self.__dict__[k] = v
-        if k in self.attr_columns:
-            if type(k) == np.ndarray:
-                self.graph[k] = v.round(2)
-            else: 
-                self.graph[k] = v
-
-    def __getattr__(self, k):
-        #print(name(self), type(k), k, v, '\n')
-        if k in self.attr_columns:
-            return self.graph.loc[k]
-
     def __getitem__(self, n):
         idx = pd.IndexSlice
         nbrs = pd.Series()
@@ -213,15 +207,26 @@ class nxNode(nx.Graph):
         if type(n) == tuple:
             return name(n) in self._adj.index
         elif type(n) == str:
-            return n in self._node.columns
+            return n in self._node.columns or n in self_node.index
         else:
             return name(n) in self._node.index
-  
-    def __name__(self):
-        return 'nxnode'
+ 
+    def __setattr__(self, k, v):
+        print(name(self), type(k), k, v, '\n')
+        self.__dict__[k] = v
+        if k in self.attr_columns:
+            if type(k) == np.ndarray:
+                self.graph[k] = v.round(2)
+            else: 
+                self.graph[k] = v
+
+    def __getattr__(self, k):
+        print(name(self), type(k), k, '\n')
+        if k in self.attr_columns:
+            return self.graph.loc[k]
 
     def name(self):
-        return self.__name__()
+        return name(self)
     
     def __iter__(self):
         return iter(self._node.index)

@@ -5,9 +5,13 @@ import networkx as nx
 import seaborn as sns
 import inspect
 from nxn import nxNode, name
+import time
 
 class Node(nxNode):
     
+    reserved_columns = ['name']
+    attr_columns = ['demand', 'value', 'price', 'color', 'type', 'pos'] 
+ 
     name = 0
     names = []
 
@@ -40,13 +44,23 @@ class Node(nxNode):
                             ], dtype=int)
                         )
         nxNode.__init__(self,
+                name=self.name,
                 price=self.price,
                 value=self.value, 
                 color=self.color, 
                 demand=self.demand,
                 pos=self.pos,
-                type=self.type
+                type=self.type,
                 )
+        print("GRAPH", self.graph)
+
+    def __setattr__(self, k, v):
+        print(name(self), type(k), k, v, '\n')
+        self.__dict__[k] = v
+
+    def __getattr__(self, k):
+        print(name(self), type(k), k, '\n')
+
 
     def filter(self, node):
         return self.type == node.type
@@ -68,4 +82,45 @@ class Node(nxNode):
         else:
             return 'buyer'
     
-  
+    def __to_dict__(self):
+         return {
+                'demand': self.demand,
+                'value': self.private_value,
+                'price': self.price,
+                'type': self.type,
+                'color': self.color,
+                'pos': self.pos
+            }
+    def __str__(self):
+        stack = inspect.stack()
+        #for frame in stack:
+        #    print('\n',frame.filename, frame.function)
+        if stack[1].function == '<dictcomp>':
+            return  str(self.__to_dict__())+'\n'
+        elif stack[1].function == 'plot':
+            return  str(self.__to_dict__())+'\n'
+        elif stack[2].function == 'plot':
+            return  str(self.__to_dict__())+'\n'
+        elif 'print' in stack[2].function:
+            return  str(self.__to_dict__())+'\n'
+        else:
+            return str(self.id)
+
+    def __repr__(self):
+        stack = inspect.stack()
+        #for frame in stack:
+        #    print('\n',frame.filename, frame.function)
+        if stack[-1].filename == '<stdin>':
+            return str(self.id)
+        elif stack[1].function == '_object_format':
+            return str(self.id)
+        elif stack[1].function == 'plot':
+            return str(self.id)
+        elif stack[1].function == 'save_frame':
+            return str(self.id)
+        elif stack[1].function == '__str__':
+            return str(self.id)
+        elif stack[2].function == 'plot':
+            return str(self.id)
+        else:
+            return self
