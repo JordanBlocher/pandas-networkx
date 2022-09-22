@@ -13,7 +13,7 @@ import plotly.express as px
 import networkx as nx
 from auction import Auction
 from models import Clock, Intersection
-from nxn import nxNode, name
+from nxn import nxNode
 
 import multiprocessing as mp
 
@@ -30,20 +30,14 @@ class Auctioneer(Auction):
     auctions_history=[]
     df = pd.Series()
     fnum=0
+    auction = None
 
     def __init__(self):
-        self.type='auctioneer'
-        Auction.__init__(self)
+        self.name='auctioneer'
+        nxNode.__init__(self)
 
-    def save_frame(self, start_time=0):
-        ts = round(time.time()-start_time,4),
-   
-        df = pd.Series({
-                        'f' : self.fnum,
-                        'ts' : ts,
-                        'nodes': self._node,
-                        'edges': self._adj
-                    })
+    def save_frame(self,ts=0):
+        df = pd.DataFrame(self._node, index=self._node.index)
         self.fnum+=1
         if self.df.empty:
             self.df = df
@@ -53,14 +47,14 @@ class Auctioneer(Auction):
         return self.df
 
     def run_local_auction(self, seller):
-        buyers = self.node_filter('buyer', seller)
+        buyers = self.node_list('buyer', seller)
         print("PREICE",seller.price)
         seller.price = self.calculate_market_price(seller, buyers)
         print("PREICE",seller.price)
         print("PREICE",self._node.loc[name(seller)].price)
         bid_history=[] 
         for buyer in self.node_list('buyer', seller):
-            if len(self.node_list('seller', buyer)) < 2:
+            if self.nnodes('seller', buyer) < 2:
                 node_list.remove(buyer)
                 print("SKIPPING BUYER", buyer)
                 continue
@@ -100,7 +94,7 @@ class Auctioneer(Auction):
 
             if seller not in self:
                 continue
-            if len(self.node_list('buyer', seller)) < 1:
+            if self.nnodes('buyer', seller) < 1:
                 continue
             auction = self.run_local_auction(seller)
             
@@ -125,7 +119,7 @@ class Auctioneer(Auction):
                     break
             buyer.price = max(prices)
         if params['noise']:
-            if len(neighbors) > 1:
+            if len(list(neighbors)) > 1:
                 if buyer.price <  min([node.price for node in neighbors.T]):
                     buyer.price = round(
                                     buyer.price * params.buyer.inc[buyer.name],
@@ -138,7 +132,8 @@ class Auctioneer(Auction):
         for v in idx:
             self.add_edge(buyer, self._node.loc[name(v)]) 
         #[self.add_edge(buyer, nodes.loc[name(v)]) for v in nodes.index]
-        self.save_frame()
+        ts = round(time.time()-params.start_time,4)
+        self.save_frame(ts)
         return buyer
  
     def second_price_winner(self, seller):
@@ -156,7 +151,7 @@ class Auctioneer(Auction):
             winner.price = nodes.loc[idx[0]].price
         seller.private_value = nodes.loc[idx[0]].price
 
-        ts = round(time.time()-params['start_time'],4)
+        ts = round(time.time()-params.start_time,4)
         self.add_edge(winner, seller)
         nodes = self.node_filter('buyer', winner)
         for v in nodes.index:
@@ -168,9 +163,10 @@ class Auctioneer(Auction):
 
     def calculate_market_price(self, seller, nodes):
         global params, start_time
-        if len(nodes) < 1:
+        if len(list(nodes)) < 1:
             return seller.price
-        sorted_nodes = nodes.sort_values('price', ascending=False)
+        print([n for n in nodes])
+        sorted_nodes = list(nodes).sort_values('price', ascending=False)
         idx=list(sorted_nodes.index)
         seller.price = nodes.loc[idx[0]].price
         if params['option']:
@@ -183,7 +179,8 @@ class Auctioneer(Auction):
                 if opt_out_demand <= 0:
                     break
             seller.price = min(prices)
-        self.save_frame()
+        ts = round(time.time()-params.start_time,4)
+        self.save_frame(ts)
         return seller.price
 
     '''

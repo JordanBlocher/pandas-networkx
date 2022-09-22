@@ -33,6 +33,14 @@ class AtlasView(Mapping):
         return f"{self.__class__.__name__}({self._atlas!r})"
 
 
+class AdjView(AtlasView):
+
+    __slots__ = ()
+
+    def __getitem__(self, name):
+        return AtlasView(self._atlas[name])
+
+
 
 class NodeView(Mapping, Set):
 
@@ -118,13 +126,6 @@ class NodeView(Mapping, Set):
             return f"{self._nodes.loc[:]}"
         return f"{list(self._nodes.index)}"
 
-
-class AdjView(AtlasView):
-
-    __slots__ = ()
-
-    def __getitem__(self, name):
-        return AtlasView(self._atlas[name])
 
 
 class EdgeView(Set, Mapping):

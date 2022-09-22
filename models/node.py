@@ -4,16 +4,49 @@ np.set_printoptions(precision=2)
 import networkx as nx
 import seaborn as sns
 import inspect
-from nxn import nxNode, name
+from nxn import nxNode, AtlasView
 import time
+import pandas as pd
+from collections import namedtuple
+from typing import NamedTuple
+from pandas import (
+    Categorical,
+    CategoricalIndex,
+    Timestamp,
+)
+from pandas.api.types import CategoricalDtype
+from pandas._typing import (
+    Dtype,
+    PositionalIndexer,
+)
+
+from pandas.core.dtypes.dtypes import register_extension_dtype
+
+from pandas.api.extensions import (
+    ExtensionArray,
+    ExtensionDtype,
+)
+from pandas.api.types import pandas_dtype
+
 
 class Node(nxNode):
-    
-    reserved_columns = ['name']
-    attr_columns = ['demand', 'value', 'price', 'color', 'type', 'pos'] 
+   
+    index = ['name', 'demand', 'value', 'price', 'color', 'type', 'pos'] 
  
     name = 0
     names = []
+    __slots__ = () 
+    graph = None
+
+    class node(NamedTuple):
+        name: int
+        demand: float
+        value: float
+        price: float
+        color: float
+        type: str
+        pos: tuple
+                
 
     def __init__(self, params):
         rng = nx.utils.create_random_state()
@@ -52,75 +85,57 @@ class Node(nxNode):
                 pos=self.pos,
                 type=self.type,
                 )
-        print("GRAPH", self.graph)
+        self.graph = self.node_attr_frame_factory(
+                                            AtlasView(self.__to_dict__()), 
+                                            columns=self.index
+                                            )
+        self.graph.set_index(pd.Index({self.name}), inplace=True)
+        self.graph.index.name = 'name'
+        nxNode.__setstate__({'_graph': self.graph}, self.name)
+
 
     def __setattr__(self, k, v):
-        print(name(self), type(k), k, v, '\n')
+        #print("NODE", self.name, type(k), k, v, '\n')
         self.__dict__[k] = v
-
-    def __getattr__(self, k):
-        print(name(self), type(k), k, '\n')
+        #self.beacon()
 
 
-    def filter(self, node):
-        return self.type == node.type
-
-    def inv_filter(self, node):
-        return self.type != node.type
 
     def add_edge(self, u, v, ts=None):
         super().add_edge(u ,v,
-                    source=name(u),
-                    target=name(v),
+                    source=u.name,
+                    target=v.name,
                     capacity=u.price, 
-                    ts=ts
+                    ts=pd.to_timedelta(ts, unit='ms')
                     )
 
-    def inv(self):
-        if self.type == 'buyer':
+    def inv(node):
+        if node.type == 'buyer':
             return 'seller'
         else:
             return 'buyer'
     
+    def __str__(self):
+        return f"{self.name}"
+
+    def __array__(self):
+        return np.array([
+                self.name,
+                self.demand,
+                self.value,
+                self.price,
+                self.color,
+                self.type,
+                self.pos
+                ], dtype=object)
+
     def __to_dict__(self):
          return {
+                'name': self.name,
                 'demand': self.demand,
-                'value': self.private_value,
+                'value': self.value,
                 'price': self.price,
                 'type': self.type,
                 'color': self.color,
                 'pos': self.pos
             }
-    def __str__(self):
-        stack = inspect.stack()
-        #for frame in stack:
-        #    print('\n',frame.filename, frame.function)
-        if stack[1].function == '<dictcomp>':
-            return  str(self.__to_dict__())+'\n'
-        elif stack[1].function == 'plot':
-            return  str(self.__to_dict__())+'\n'
-        elif stack[2].function == 'plot':
-            return  str(self.__to_dict__())+'\n'
-        elif 'print' in stack[2].function:
-            return  str(self.__to_dict__())+'\n'
-        else:
-            return str(self.id)
-
-    def __repr__(self):
-        stack = inspect.stack()
-        #for frame in stack:
-        #    print('\n',frame.filename, frame.function)
-        if stack[-1].filename == '<stdin>':
-            return str(self.id)
-        elif stack[1].function == '_object_format':
-            return str(self.id)
-        elif stack[1].function == 'plot':
-            return str(self.id)
-        elif stack[1].function == 'save_frame':
-            return str(self.id)
-        elif stack[1].function == '__str__':
-            return str(self.id)
-        elif stack[2].function == 'plot':
-            return str(self.id)
-        else:
-            return self

@@ -1,19 +1,23 @@
 import numpy as np
 import networkx as nx
-from nxn import nxNode, name
+from nxn import nxNode
 from .node import Node
-
+import pandas as pd
 import time
 
 class Clock(nxNode):
 
+    index = ['ts', 'winner']
+ 
+    name = pd.to_timedelta(0)
     ts = 0
     T = nxNode()
 
     def __init__(self, seller, winner, neighbors, ts):
-        self.ts = ts
+        self.ts = pd.to_timedelta(ts)
         self.winner = winner.name
         nxNode.__init__(self,
+                        ts=self.ts,
                         winner=self.winner,
                         )
         self.add_node(seller)
@@ -39,8 +43,18 @@ class Clock(nxNode):
    
     def add_edge(self, u, v, ts=None):
         super().add_edge(u ,v,
-                    source=name(u),
-                    target=name(v),
-                    ts=ts
+                    ts=pd.to_timedelta(ts),
+                    source=u.name,
+                    target=v.name,
                     )
+
+    def __str__(self):
+        return f"{self.name}"
+
+    def __array__(self):
+        return np.array([
+                self.ts,
+                self.winner
+                ], dtype=object)
+
 

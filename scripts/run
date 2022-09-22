@@ -1,4 +1,7 @@
 killall python3
 pkill -9 -f app
-python3 app.py $1
-
+if [ "$1" == "test" ]; then
+	PYTHONSTARTUP=.python3_config python3 -i test.py;
+else
+python3 app.py $1;
+fi

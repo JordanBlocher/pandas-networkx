@@ -29,11 +29,11 @@ class MarketSim:
     auctioneer = Auctioneer()
 
     def __init__(self, make_params):
-        global params, mk
+        global params, G
         params = make_params()
-        mk = self.auctioneer
-        mk.make_params = make_params
-        mk.make_graph()
+        G = self.auctioneer
+        G.make_params = make_params
+        G.make_graph()
         self.fig = sp.make_subplots(
                         rows=1, 
                         cols=2, 
@@ -45,15 +45,15 @@ class MarketSim:
                         horizontal_spacing = 0.01,
                         vertical_spacing = 0.01
                         )
-        df = mk.save_frame(params['start_time'])
+        df = G.save_frame()
         #self.plot(df)
 
     def do_round(self, rnum):
-        global mk
+        global G
         start = time.time()
-        df,clock = mk.run_auctions(rnum)
+        df,clock = G.run_auctions(rnum)
         self.end_time = time.time()
-        self.read_clock(clock, 1)
+        #self.read_clock(clock, 1)
         #self.plot_update(df)
         return self.fig 
 
@@ -62,7 +62,7 @@ class MarketSim:
         mat = rf['adj']
         edges = rf['edges']
         nodes = [node for node in mat.axes[0]]
-        ids = sorted([node.id for node in nodes])
+        names = sorted([node.name for node in nodes])
 
         #nodekv = dict([(node.id, node.__dict__()) for node in nodes])
 
@@ -92,8 +92,7 @@ class MarketSim:
         self.frames = self.fig['frames']
 
     def read_clock(self, clock, ts):
-        global mk
-        params = mk.make_params()
+        global G, params
         print('\n\n',clock.nodes)
         print('\n\n',clock.T)
         for c in clock.T:
@@ -143,7 +142,7 @@ class MarketSim:
                     ] for buyer in buyers], dtype=object
                 ).flatten()
         values = np.array([
-                        [v.id for v in n.neighbors
+                        [v.name for v in n.neighbors
                         ] for n in clock.inf_nodes()], dtype=object
                     ).flatten(),
         rand = np.random.randint(0,len(nbrs), size=len(values))
@@ -162,7 +161,7 @@ class MarketSim:
                     range = [1, self.nbuyers()],
                     label = 'Auction', 
                     values = np.array([
-                                [buyer.id for v in self.seller_list(buyer)
+                                [buyer.name for v in self.seller_list(buyer)
                                 ] for buyer in buyers], dtype=object
                             ).flatten()
                 ),
@@ -183,15 +182,15 @@ class MarketSim:
                                     ).flatten()
                 ),
                dict(
-                    range = [-1, max([v.id for v in buyers])],
-                    tickvals = [v.id for v in clock.inf_nodes()],
+                    range = [-1, max([v.name for v in buyers])],
+                    tickvals = [v.name for v in clock.inf_nodes()],
                     label = 'Winners', 
                     values = nbrs
                  ),
                dict(
-                    range = [-1, max([v.id for v in buyers])],
+                    range = [-1, max([v.name for v in buyers])],
                     tickvals = np.array([
-                                    [v.id for v in n.neighbors
+                                    [v.name for v in n.neighbors
                                     ] for n in clock.inf_nodes()], dtype=object
                                 ).flatten(),
                     label = 'Influence', 
@@ -212,7 +211,7 @@ class MarketSim:
             dimensions = list([
                 dict(
                     label = 'Node', 
-                    values = [v.id for v in nodes]),
+                    values = [v.name for v in nodes]),
                 dict(
                     label = 'Price', 
                     values = [v.price for v in nodes]),
@@ -316,7 +315,7 @@ class MarketSim:
         mat = dict([(k,rf['adj']) for k,rf in raw_frames])
         edges = dict([(k,rf['edges']) for k,rf in raw_frames])
         nodes = dict([(k,[node for node in mat[k].axes[0]]) for k in keys])
-        ids = dict([(k,sorted([node.id for node in nodes[k]])) for k in keys])
+        ids = dict([(k,sorted([node.name for node in nodes[k]])) for k in keys])
 
         nodes = dict([(k,edges[k].drop(columns='weight').stack()) for k in keys])
 

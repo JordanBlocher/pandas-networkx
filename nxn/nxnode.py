@@ -9,12 +9,17 @@ from params import make_params
 import time
 from .views import AdjView, EdgeView, NodeView, AtlasView, EdgeSet
 from termcolor import colored
+from collections import namedtuple
+
+__all__ = ["nxNode"]
+
 
 class _CachedPropertyResetterAdj:
     def __set__(self, obj, value):
         od = obj.__dict__
         od["_adj"] = value
         if "adj" in od:
+            print("USINGTHISFUNCTIOIN!!!!!!!\n\n\n\n\n\n")
             del od["adj"]
 
 
@@ -25,33 +30,23 @@ class _CachedPropertyResetterNode:
         if "nodes" in od:
             del od["nodes"]
 
+
 def name(obj):
-    n = None
-    #stack = inspect.stack()
-    #for frame in stack:
-    #print('\n',frame.filename, frame.function) 
-    #print('\n',stack[1].filename, stack[1].function) 
     if type(obj) == tuple:
-        n = (name(obj[0]), name(obj[1]))
+        return (obj[0].name, obj[1].name)
     elif type(obj) == int or type(obj) == float:
-        n = obj
+        return obj
     elif obj.name != None:
-        n = obj.name
+        return obj.name
     elif type(obj) == str:
-        n = obj
-    elif 'name' in obj.__dict__.keys():
-        n = obj.name
-    elif 'ts' in obj.__dict__.keys():
-        n = obj.ts
-    elif type(obj) == pd.Series:
-        n = obj.name
+        return obj
     elif type(obj) == pd.DataFrame:
-        print(obj)
-        n = obj.name
+        print("INDEXIS NAMEOF DF", obj.index)
+        return obj.index[0]
     else:
-        n = obj.__hash__()
-    return n    
-    
+        raise ValueError(f"{self.__class__} is missing a name")
+
+
 def TS():
     params=make_params()
     return round(time.time() - params.start_time,3)
@@ -60,58 +55,71 @@ class nxNode(nx.Graph):
     
     _adj = _CachedPropertyResetterAdj()
     _node = _CachedPropertyResetterNode()
-    _graph = {}
+    __slots__ = ('_graph',)
 
-    graph_attr_frame_factory = pd.Series
+    def __getstate__(self, n):
+        return {"_graph": self._graph[n]}
+
+    def __setstate__(self, state, n):
+        print('\n-------------------\n')
+        print("SETTING STATE\n\n\n")
+        self._graph[n] = state["_graph"]
+        print(state['_graph'])
+        print('\n-------------------\n')
+
+    graph_attr_frame_factory = pd.DataFrame
     node_attr_frame_factory = pd.DataFrame
-    node_attr_frame_factory.name = '_node'
     edge_attr_frame_factory = pd.DataFrame
-    edge_attr_frame_factory.name = '_adj' 
-
-    G = None
-    reserved_columns = []
-    attr_columns = []
+    index = []
+    columns =[]
 
     def __init__(self, **attr):
-        attr_columns = list(attr.keys())
-        columns = pd.Index(self.__dict__.keys())
-        self._node = self.node_attr_frame_factory(
-                                            AtlasView(self.__dict__), 
-                                            columns=columns
-                                            )
+        try:
+            self.graph = self.graph_attr_frame_factory(
+                                                AtlasView(attr),
+                                                columns=self.index
+                                                )
+            if self.name != None:
+                self.graph.set_index(pd.Index({self.name}), inplace=True)
+            print(self.graph)
+            self.__set_state__({'_graph': self.graph})
+        except:
+            pass
         self._adj = self.edge_attr_frame_factory() 
-        G = self.G()
-        if len(self.reserved_columns) > 0:
-            self._node.set_index(self.reserved_columns, inplace=True)
-        print(self._graph)
-
-    def G(self):
-        return self
-
+        self._node = self.node_attr_frame_factory() 
 
     def add_node(self, new_node, **attr):
-        #print("ADDING", new_node.type, "NODE", name(new_node), type(new_node), TS())
-        reserved_columns = ['name']
-        attr_columns = ['demand', 'value', 'price', 'color', 'type', 'pos'] 
- 
-        columns = pd.Index(new_node.__dict__.keys())
+        print("ADDING", new_node.type, "NODE", new_node.name, type(new_node), "at",  TS())
+        index = pd.Index({name(new_node)})
+        index.name = 'name'
+        
+        #print('\n-------------------\n')
+        #print("NODE", new_node, '\n-------------\n')
+        print("ARRAY",new_node.__array__(), '\n----------------\n')
+        
         _node = self.node_attr_frame_factory(
-                                        AtlasView(new_node.__dict__), 
-                                        columns=attr_columns
+                                        [new_node.__array__()],
+                                        columns=new_node.index
                                         )
-        _node.set_index(reserved_columns, inplace=True)
+        _node.name = name(new_node)
+        _node.set_index(index, inplace=True)
+        #print("_NODE", _node, "index", index)
         if _node in self:
-            self._node.loc[name(_node)] = _node
+            #self._node.loc[name(_node)] = _node
+            self._node.update(_node)
         else:  
             self._node=self._node.append(_node)
-        self._graph[name(new_node)] = new_node
+        #self._graph[name(new_node)] = new_node
 
     def add_edge(self, u, v, **attr):
+        #print("ADDINGEDGE")
         self.add_node(u)
         self.add_node(v)
         columns = pd.Index(attr.keys())
+        index = pd.Index({(u.name, v.name)})
         df = self.edge_attr_frame_factory(AtlasView(attr), columns=columns)
-        df.set_index(['source', 'target'], inplace=True)
+        #print("DF",df)
+        df.set_index(index, inplace=True)
         key = (u,v)
         if key in self:
             self._adj.loc[name(key)]=df.loc[name(key)]
@@ -133,7 +141,7 @@ class nxNode(nx.Graph):
         if n in self:
             for e in self[n].T:
                 self._adj = self._adj.drop(e)
-            self._node = self._node.drop(name(n))
+            self._node = self._node.drop(n.name)
 
     def nodes(self, data=False):
         return NodeView(self, data)
@@ -189,11 +197,11 @@ class nxNode(nx.Graph):
     def __getitem__(self, n):
         idx = pd.IndexSlice
         nbrs = pd.Series()
-        if name(n) in self._node.loc[ self._node.type == 'seller'].index:
+        if n.name in self._node.loc[ self._node.type == 'seller'].index:
             nbrs = self._adj.loc[idx[:,name(n)],:]
             #print(self._adj.loc[idx[:,name(n)],:])
             return nbrs
-        if name(n) in self._node.loc[ self._node.type == 'buyer'].index:
+        if n.name in self._node.loc[ self._node.type == 'buyer'].index:
             #print(self._adj.loc[idx[name(n),:],:])
             nbrs = self._adj.loc[idx[name(n),:],:]
             try:
@@ -204,30 +212,19 @@ class nxNode(nx.Graph):
             return nbrs
 
     def __contains__(self, n):
+        print(n,"\n\nin self, type", type(n), "index", n.index)
+        print('\n-------------------\n')
         if type(n) == tuple:
             return name(n) in self._adj.index
         elif type(n) == str:
             return n in self._node.columns or n in self_node.index
         else:
-            return name(n) in self._node.index
- 
+            return n.index[0] in self._node.columns or n.index[0] in self._node.index
+        
     def __setattr__(self, k, v):
-        print(name(self), type(k), k, v, '\n')
+        #print("SET", type(k), k, v, '\n')
         self.__dict__[k] = v
-        if k in self.attr_columns:
-            if type(k) == np.ndarray:
-                self.graph[k] = v.round(2)
-            else: 
-                self.graph[k] = v
 
-    def __getattr__(self, k):
-        print(name(self), type(k), k, '\n')
-        if k in self.attr_columns:
-            return self.graph.loc[k]
-
-    def name(self):
-        return name(self)
-    
     def __iter__(self):
         return iter(self._node.index)
 
@@ -238,7 +235,6 @@ class nxNode(nx.Graph):
         return "".join(
             [
                 type(self).__name__,
-                f" {self.name}" if self.name else "{self.ts}",
                 f" with {len(self._node)} nodes and {len(self._adj)} edges",
                 f"{self.graph}",
             ]

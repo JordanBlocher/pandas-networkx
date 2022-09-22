@@ -5,7 +5,7 @@ from termcolor import colored
 import seaborn as sns
 
 from models import Node
-from nxn import nxNode, name, spectral_layout
+from nxn import nxNode, spectral_layout, name
 import pandas as pd
 import time
 
@@ -20,8 +20,9 @@ and is updated the next time a player challenges the price.
 
 class Auction(nxNode):
 
+
     def __init__(self):
-        self.type='auction'
+        self.name='auction'
         nxNode.__init__(self)
 
     def make_graph(self):
@@ -51,7 +52,7 @@ class Auction(nxNode):
     def node_list(self, ntype=None, v=None):
         nodes = self.node_filter(ntype, v)
         idx = [n for n in nodes.index]
-        return list(nodes.loc[n] for n in idx)
+        return iter(nodes.loc[n] for n in idx)
 
     def node_filter(self, ntype=None, v=None):
         #print("IN FILTER", ntype, '\n------------------------------\n')
@@ -66,20 +67,20 @@ class Auction(nxNode):
                     nbrs = nbrs.append(self._node.loc[name(u)]) 
                 #print("\nNBRS1", list(nbrs.index))
             if ntype is not None:
-                nbrs = nbrs.loc[ nbrs.type == ntype ]
+                nbrs = nbrs.loc[ nbrs['type'] == ntype ]
                 #print("\nNBRSTYPE2", list(nbrs.index))
             #print("\n---------------------------------\n")
         else:
-            nbrs = self._node.loc[ self._node.type == ntype ]
+            nbrs = self._node.loc[ self._node['type'] == ntype ]
         #print("\n---------------------------------\nNBRS", nbrs)
         #print("\n---------------------------------\n")
         return nbrs
 
     def add_star(self, node, v=None):
-        #print("ADDING", node, "STAR")
+        #print("ADDING", node.type, "STAR")
 
         nbrs = rsample(
-                        self.node_filter(node.inv(), v),
+                        self.node_filter(Node.inv(node), v),
                         params.g_max
                         )
         #print("SAMPLED", nbrs)
@@ -97,6 +98,9 @@ class Auction(nxNode):
         for v, n in edges:
             #print("HERE: EDGE", v,n)
             self.add_edge(v, n)
+
+    def add_node(self, node):
+        nxNode.add_node(self, node)
 
     def update_auction(self, winner, seller):
         global params
@@ -165,23 +169,18 @@ class Auction(nxNode):
         return len(self.buyers)
     def nsellers(self):
         return len(self.sellers)
-    def nnodes(self, ntype=None):
-        if ntype == 'seller':
-            return self.nsellers
-        elif ntype == 'buyer':
-            return self.nbuyers
-        else:
-            return self.nbuyers+self.nsellers
+    def nnodes(self, ntype=None, v=None):
+        return len([n for n in self.node_list(ntype, v)])
 
     def add_edge(self, u, v, ts=None):
         global params
         ts = round(time.time()-params.start_time,4)
         #print("TARGET",v,'\n---------------------------------\n')
         super().add_edge(u ,v,
-                    source=name(u),
-                    target=name(v),
+                    source=u.name,
+                    target=v.name,
                     capacity=u.price, 
-                    ts=ts
+                    ts=pd.to_timedelta(ts, unit='ms')
                     )
 
     def print_auction(self, data=False):
@@ -195,7 +194,7 @@ class Auction(nxNode):
         print(colored(str(self.nbuyers)+' buyers', 'green'), end=' ')
         print(colored(str(self.nsellers)+' sellers', 'magenta')) 
         for seller in self.sellers:
-            print(colored(name(seller), 'magenta'), end=' ') 
+            print(colored(seller.name, 'magenta'), end=' ') 
             for buyer in self.node_filter('buyer', seller).T:
                 print(colored(buyer, 'green'), end=' ')
             print('')
@@ -205,7 +204,7 @@ class Auction(nxNode):
 def rsample(x, maxn):
     #print("IN RSAMPLE", x.index)
     if len(x) < 2:
-        raise ValueError 
+        raise ValueError(f"sample set smaller than min set size")
     if maxn < len(x):
         u = random.sample(
                         [n for n in list(x.index)],

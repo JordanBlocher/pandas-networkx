@@ -1,88 +1,38 @@
-import pytest
+from nxn import * 
+import nxn as nxn
+from models import *
+from auction import *
+from scripts import *
+from params import make_params
+from sim import *
+import networkx as nx
+import pandas as pd
+import numpy as np
+import random
+import time
+from termcolor import colored
+from tests import *
 
-try:
-    import networkx as nx
-except ImportError:
-    raise "Module networkx not imported" 
+values = pd.read_csv('./params/params.dat')
+values.loc[0].nbuyers=15
+values.loc[0].nsellers=7
+f = open('./params/params.dat','w')
+f.write(values.to_csv())
+f.close()
 
-# Do modules load?
-try:
-    from models import Node
-except ImportError:
-    raise "Module Node not imported" 
+params=make_params()
 
-try:
-    from nx import nxNode, AdjView, NodeView, EdgeView, DegreeView, NodeDataView, EdgeDataView, DegreeView, DataView, id
-except ImportError:
-    raise "Module nxNode not imported" 
 
-try:
-    from market_sim import MarketSim
-except ImportError:
-    raise "Module MarketSim not imported" 
-
-try:
-    from auction import Auctioneer Auction, rsample
-except ImportError:
-    raise "Module Auction not imported" 
-
-try:
-    from params import make_params
-    params = make_params()
-except ImportError:
-    raise "Params not imported" 
-
-# What dependencies are installed?
-
-try:
-    import time
-except ImportError:
-    has_time = False
-
-try:
-    import numpy
-
-    has_numpy = True
-except ImportError:
-    has_numpy = False
-
-try:
-    import scipy
-
-    has_scipy = True
-except ImportError:
-    has_scipy = False
-
-try:
-    import matplotlib
-
-    has_matplotlib = True
-except ImportError:
-    has_matplotlib = False
-
-try:
-    import pandas
-
-    has_pandas = True
-except ImportError:
-    has_pandas = False
-
-try:
-    import dash
-except ImportError:
-    has_dash = False
-
-try:
-    import seaborn
-except ImportError:
-    has_seaborn = False
-
-try:
-    import sympy
-
-    has_sympy = True
-except ImportError:
-    has_sympy = False
-
+nd, nds = test_node(params)
+Node.name=0
+Node.ids=[]
+g = test_auction()
+n=g._node
+e=g._adj
+Node.name=0
+Node.ids=[]
+G = test_auctioneer()
+N=G._node
+E=G._adj
 
 

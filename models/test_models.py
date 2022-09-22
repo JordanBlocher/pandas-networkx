@@ -12,9 +12,16 @@ def params():
 def nodes(params):
     nodes = []
     for ntype in ['buyer', 'seller']:
-        for i in range(5):
+        for i in range(params['n'+str(ntype)+'s']):
             nodes.append(Node(params[ntype]))
     return nodes
+
+#@pytest.fixture
+def auction():
+    auction = Auction()
+    auction.make_params = make_params
+    auction.make_graph()
+    return auction
 
 def test_add_node(nodes):
     n = nodes[0]
@@ -43,21 +50,35 @@ def test_add_edge(nodes):
     n.add_edge(n3,n6,ts=13)
     n.add_edge(n4,n7,ts=13)
     n.add_edge(n4,n8,ts=13)
+    n8.price = 888
     n.add_edge(n2,n9,ts=13)
     n.add_edge(n2,n5,ts=13)
+    n6.value = 999
     n.add_edge(n1,n6,ts=13)
     n.add_edge(n3,n7,ts=13)
     n.add_edge(n1,n8,ts=13)
+    n9.value = 111
     n.add_edge(n3,n9,ts=13)
  
     return n
 
-def test():
-    params = make_params()
+def test_node(params):
     node = nodes(params)
     n = test_add_node(node)
     n = test_add_edge(node)
 
     nodez = n.nodes()
     return n, nodez
+
+def test_clock(winner, seller):
+    start = time.time()
+    buyers=auction.node_list('buyer')
+    sellers = auction.node_list('seller')
+    c = Clock(winner=buyers[0], 
+              seller=sellers[0], 
+              neighbors=auction.node_list(buyers[0]), 
+              ts=pd.to_timedelta(0)
+              )
+      
+    return c
 

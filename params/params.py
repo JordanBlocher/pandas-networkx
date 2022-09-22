@@ -3,83 +3,68 @@ import networkx as nx
 import pandas as pd
 from termcolor import colored
 import os
-from .globals import *
+import time
 
 def make_params():
-    global nbuyers, nsellers, noise, rounds, auction_round
+    global nbuyers, nsellers, noise, rounds, start_time
 
     rng = nx.utils.create_random_state()
 
-    option = False
-    nnodes = nbuyers+nsellers
-    noise_low = .2, #nOTE: TRY NEGATIVE VALUES
-    noise_high = 1.2
-
-    buyer_init_factor = rng.uniform(.5, .8) # bid under
-    buyer_max_price = 75
-    buyer_max_quantity = 70
-    buyer_inc = [.9, 1] # 1.2 1.5
-    buyer_dec = [0.8, 9] #0.3 0.7
-
-    seller_init_factor = rng.uniform(1.2, 1.5) # bid over
-    seller_max_price = 95
-    seller_max_quantity = 100
-    seller_inc = [.1, 1]
-    seller_dec = [.1, 1]
+    df=pd.read_csv('./params/params.dat').loc[0]
+    nnodes = df.nbuyers+df.nsellers
 
     return pd.Series(dict(
-    auction_round = auction_round,
-    start_time = start_time,
-    option = option,
-    noise = noise,
-    nsellers = nsellers,
-    nbuyers = nbuyers,
+    start_time=time.time(),
+    option = df.option,
+    noise = df.noise,
+    nsellers = df.nsellers,
+    nbuyers = df.nbuyers,
     # nnodes, g_mod, and nbuyers/sellers are not independent, 
     # there should be an optimal
     # formula for EQ
     nnodes = nnodes,
-    g_max = max(min(nbuyers, nsellers)-2, 3),
+    g_max = max(min(df.nbuyers, df.nsellers)-2, 3),
     noise_factor = pd.Series(dict(
-                        low = noise_low,
-                        high = noise_high,
+                        low = df.noise_low,
+                        high = df.noise_high,
         )),
     buyer = pd.Series(dict(# negative flow wants to send out 
-            init_factor = buyer_init_factor,
-            max_price = buyer_max_price,
-            max_quantity = buyer_max_quantity,
+            init_factor = rng.uniform(df.buyer_init_0, df.buyer_init_1),
+            max_price = df.buyer_max_price,
+            max_quantity = df.buyer_max_quantity,
             inc_factor = rng.uniform(
-                                buyer_inc[0],
-                                buyer_inc[1],
+                                df.buyer_inc_0,
+                                df.buyer_inc_1,
                                 size=nnodes+15
                                 ),
             dec_factor = rng.uniform(
-                                buyer_inc[0],
-                                buyer_inc[1],
+                                df.buyer_inc_0,
+                                df.buyer_inc_1,
                                 size=nnodes+15
                                 ),         
             flow=-1,
             price = rng.poisson(
-                        buyer_max_price,
+                        df.buyer_max_price,
                         size=nnodes+15
                         )
             )),
     seller = pd.Series(dict( 
-            init_factor=seller_init_factor,
-            max_price=seller_max_price,
-            max_quantity=seller_max_quantity,
+            init_factor=rng.uniform(df.seller_init_0, df.seller_init_1),
+            max_price=df.seller_max_price,
+            max_quantity=df.seller_max_quantity,
             inc_factor = rng.uniform(
-                                seller_inc[0],
-                                seller_inc[1],
+                                df.seller_inc_0,
+                                df.seller_inc_1,
                                 size=nnodes+15
                                 ),
             dec_factor = rng.uniform(
-                                seller_dec[0],
-                                seller_dec[1],
+                                df.seller_dec_0,
+                                df.seller_dec_1,
                                 size=nnodes+15
                                 ),         
             flow=1,
             price = rng.poisson(
-                        seller_max_price,
+                        df.seller_max_price,
                         size=nnodes+15
                         )
             
