@@ -26,13 +26,17 @@ params=make_params()
 nd, nds = test_node(params)
 Node.name=0
 Node.ids=[]
+print("Passed node test...")
 g = test_auction()
 n=g._node
 e=g._adj
+print("Passed auction test...")
 Node.name=0
 Node.ids=[]
 G = test_auctioneer()
 N=G._node
 E=G._adj
+G.run_auctions(0)
+print("Passed auctioneer test...")
 
 

@@ -92,6 +92,9 @@ class Node(nxNode):
     
     def __str__(self):
         return f"{self.graph.values}"
+
+    def __repr__(self):
+        return str(self.name)
     '''
 
     def __to_dict__(self):

@@ -116,7 +116,7 @@ class Auction(nxNode):
             do it causes instability.
         '''
         for buyer in self.buyers:
-            if len(self.node_list('seller', buyer)) < 2:
+            if self.nnodes('seller', buyer) < 2:
                 #print("RANOUTOFSELLERS", self.sellers)
                 self.add_edge(buyer, random_choice(self.node_filter('seller')))
          
@@ -169,7 +169,7 @@ class Auction(nxNode):
     def nsellers(self):
         return len(self.sellers)
     def nnodes(self, ntype=None, v=None):
-        return len(self.node_list(ntype, v))
+        return len(list(self.node_list(ntype, v)))
 
     def add_edge(self, u, v, ts=None):
         global params

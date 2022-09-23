@@ -36,7 +36,7 @@ class Auctioneer(Auction):
         nxNode.__init__(self, name=self.name)
 
     def save_frame(self,ts=0):
-        df = pd.DataFrame(self._node, index=self._node.index)
+        df = pd.DataFrame(self._node.values, index=[ts for n in self._node.index], columns=self._node.columns)
         self.fnum+=1
         if self.df.empty:
             self.df = df
@@ -46,11 +46,8 @@ class Auctioneer(Auction):
         return self.df
 
     def run_local_auction(self, seller):
-        buyers = self.node_list('buyer', seller)
-        print("PREICE",seller.price)
+        buyers = self.node_filter('buyer', seller)
         seller.price = self.calculate_market_price(seller, buyers)
-        print("PREICE",seller.price)
-        print("PREICE",self._node.loc[name(seller)].price)
         bid_history=[] 
         for buyer in self.node_list('buyer', seller):
             if self.nnodes('seller', buyer) < 2:
@@ -60,7 +57,7 @@ class Auctioneer(Auction):
             bid = self.calculate_consistent_bid(
                                             buyer,
                                             self.node_filter('seller', buyer), 
-                                            self.node_filter('buyer', buyer)
+                                            self.node_list('buyer', buyer)
                                             )
             bid_history.append(bid)
 
@@ -93,20 +90,18 @@ class Auctioneer(Auction):
 
             if seller not in self:
                 continue
-            if self.nnodes('buyer', seller) < 1:
+            if self.nnodes('buyer', seller) < 1: #Allow first price TODO: make a param
                 continue
             auction = self.run_local_auction(seller)
             
         end_time = time.thread_time()
 
-        print(self.df)
         return self.df, Clock
 
     def calculate_consistent_bid(self, buyer, nodes, neighbors):
         global params
-        sorted_nodes = nodes.sort_values('price')
-        idx=list(sorted_nodes.index)
-        buyer.price = nodes.loc[idx[0]].price
+        sorted_nodes = list(nodes.sort_values('price').index)
+        buyer.price = sorted_nodes[0].price
         if params['option']:
             prices = []
             opt_out_demand = buyer.demand
@@ -118,43 +113,41 @@ class Auctioneer(Auction):
                     break
             buyer.price = max(prices)
         if params['noise']:
-            if len(list(neighbors)) > 1:
-                if buyer.price <  min([node.price for node in neighbors.T]):
+            if len(neighbors) > 1:
+                if buyer.price <  min([node.price for node in neighbors]):
                     buyer.price = round(
                                     buyer.price * params.buyer.inc[buyer.name],
                                     2)
-                elif buyer.price >  max([node.price for node in neighbors.T]):
+                elif buyer.price >  max([node.price for node in neighbors]):
                     buyer.price = round(
                                     buyer.price * params.buyer.dec[buyer.name],
                                     2)
 
-        for v in idx:
-            self.add_edge(buyer, self._node.loc[name(v)]) 
+        for v in sorted_nodes:
+            self.add_edge(buyer, v) 
         #[self.add_edge(buyer, nodes.loc[name(v)]) for v in nodes.index]
         ts = round(time.time()-params.start_time,4)
-        self.save_frame(ts)
+        self.save_frame(pd.to_timedelta(ts, unit='ms'))
         return buyer
  
     def second_price_winner(self, seller):
         global auction_round, params
         nodes = self.node_filter('buyer', seller)
-        sorted_nodes = nodes.sort_values('price', ascending=False)
-        idx=list(sorted_nodes.index)
+        sorted_nodes = list(nodes.sort_values('price', ascending=False).index)
  
-        winner = nodes.loc[idx[0]]
+        winner = sorted_nodes[0]
         winner.private_value = round(winner.price,2)
-        if len(idx) > 1:
-            winner.price = nodes.loc[idx[1]].price
-        else:
+        try:
+            winner.price = sorted_nodes[1].price
+        except KeyError:
             print('Taking first price')
-            winner.price = nodes.loc[idx[0]].price
-        seller.private_value = nodes.loc[idx[0]].price
+        seller.private_value = sorted_nodes[0].price
 
         ts = round(time.time()-params.start_time,4)
         self.add_edge(winner, seller)
         nodes = self.node_filter('buyer', winner)
-        for v in nodes.index:
-            self.add_edge(winner, self._node.loc[name(v)]) 
+        for v in sorted_nodes:
+            self.add_edge(winner, v)
         #[self.add_edge(winner, nodes.loc[name(v)]) for v in idx]
 
         #Clock(seller, winner, self.node_filter('buyer', winner), ts)
@@ -162,12 +155,10 @@ class Auctioneer(Auction):
 
     def calculate_market_price(self, seller, nodes):
         global params, start_time
-        if len(list(nodes)) < 1:
+        if len(nodes.index) < 1:
             return seller.price
-        print([n for n in nodes])
-        sorted_nodes = list(nodes).sort_values('price', ascending=False)
-        idx=list(sorted_nodes.index)
-        seller.price = nodes.loc[idx[0]].price
+        sorted_nodes = list(nodes.sort_values('price', ascending=False).index)
+        seller.price = sorted_nodes[0].price
         if params['option']:
             prices = []
             opt_out_demand = seller.demand
@@ -179,7 +170,7 @@ class Auctioneer(Auction):
                     break
             seller.price = min(prices)
         ts = round(time.time()-params.start_time,4)
-        self.save_frame(ts)
+        self.save_frame(pd.to_timedelta(ts, unit='ms'))
         return seller.price
 
     '''

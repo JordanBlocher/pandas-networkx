@@ -14,7 +14,6 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from sim import MarketSim
 from params import make_params
-from params.globals import *
 
 def get_new_data():
     global auction_round
