@@ -34,6 +34,7 @@ class Node(nxNode):
         else:
             Node.name +=1
             self.name = Node.name
+        print("ADDING NODE", self.name)
         
         self.demand = rng.randint(1, 
                             params.max_quantity
@@ -54,6 +55,7 @@ class Node(nxNode):
                             0
                             ], dtype=int)
                         )
+        self.winner = False
         nxNode.__init__(self, 
                     name=self.name,
                     demand=self.demand,
@@ -66,10 +68,11 @@ class Node(nxNode):
                         
 
     def __setattr__(self, k, v):
-        #print("NODE", self.name, type(k), k, v, '\n')
         self.__dict__[k] = v
-        if k in self.index:
+        if k in self.index[1:]:
             self.__signal__(self)
+            #print("NODE", self)
+            #print("NODESETATTR", self.name, type(k), k, v, '\n')
 
     def inv(node):
         if node.type == 'buyer':
@@ -91,7 +94,7 @@ class Node(nxNode):
                 dtype=object)
     
     def __str__(self):
-        return f"{self.graph.values}"
+        return f"{self.__array__()}"
 
     def __repr__(self):
         return str(self.name)

@@ -31,6 +31,7 @@ class MarketSim:
     def __init__(self, make_params):
         global params, G
         params = make_params()
+        params.start_time=time.time()
         G = self.auctioneer
         G.make_params = make_params
         G.make_graph()
@@ -110,12 +111,11 @@ class MarketSim:
         return cf
 
     def print_round(self, rnum):
-        global mk
-        print('round', rnum,
-              ': nbuyers=', mk.nbuyers(), 
-              ', nsellers=', mk.nsellers(),
+        global G
+        print('Round', rnum,
+              ': nbuyers=', G.nbuyers, 
+              ', nsellers=', G.nsellers,
               ', nframes=', len(self.fig['frames']))
-        #print(nx.to_pandas_adjacency(auctioneer.G))
         #if len(sys.argv) > 1:
         #    for auction in auctioneer.auctions_history[auction_round]:
         #        print(auction, '\t')

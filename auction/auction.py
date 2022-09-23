@@ -22,8 +22,6 @@ class Auction(nxNode):
     name: str = 'auction'
     index = ['name']
 
-    def __init__(self):
-        nxNode.__init__(self, name=self.name)
 
     def make_graph(self):
         global params, rng
@@ -37,40 +35,36 @@ class Auction(nxNode):
         for node in range(params.nbuyers):
             new_node = Node(params.buyer)
             self.add_star(new_node)
-        
+        print("MADE") 
         #pos = spectral_layout(self, dim=3)
         #print("POS", pos)
         #for node in self.nodes():
          #   node.pos = pos[node] 
 
-        self.buyers   = self.buyers()
-        self.nbuyers  = self.nbuyers()
-        self.sellers  = self.sellers()
-        self.nsellers = self.nsellers()
-        self.print_auction()
-     
     def node_list(self, ntype=None, v=None):
         nodes = self.node_filter(ntype, v)
         return iter(nodes.index)
 
-    def node_filter(self, ntype=None, v=None):
+    def node_filter(self, ntype=None, v=None): #TODO: generalize filter
         #print("IN FILTER", ntype, '\n------------------------------\n')
         idx=pd.IndexSlice
         nbrs = pd.DataFrame()
-        if v is not None:
-            #print("IN FILTER node", v, '\n------------------------------\n')
+        if v is not None and v in self:
+            #print("using node", v, '\n------------------------------\n')
             for u,w in self[v].index:
                 if name(u) == name(v):
                     nbrs = nbrs.append(self._node.loc[self._node.name == name(w)]) 
                 elif name(w) == name(v):
                     nbrs = nbrs.append(self._node.loc[self._node.name == name(u)]) 
-                #print("\nNBRS1", list(nbrs.index))
-            if ntype is not None:
+            #print("\nNBRS1", list(nbrs.index))
+            if ntype is not None and v in self:
                 nbrs = nbrs.loc[ nbrs['type'] == ntype ]
                 #print("\nNBRSTYPE2", list(nbrs.index))
             #print("\n---------------------------------\n")
-        else:
+        elif ntype is not None:
             nbrs = self._node.loc[ self._node['type'] == ntype ]
+        else:
+            nbrs = self._node.loc[:]
         #print("\n---------------------------------\nNBRS", nbrs)
         #print("\n---------------------------------\n")
         return nbrs
@@ -98,49 +92,48 @@ class Auction(nxNode):
             #print("HERE: EDGE", v,n)
             self.add_edge(v, n)
 
-    def add_node(self, node):
-        nxNode.add_node(self, node)
-
+    def update(self):
+        global params
+        params = self.make_params()
+        for ntype in ['buyer', 'seller']:
+            cnt = self.nnodes(ntype)-params['n'+ntype+'s']
+            if cnt > 1:
+                self.update_nodes(cnt, ntype)
+            params.nnodes = self.nnodes()
+        return params
+  
     def update_auction(self, winner, seller):
         global params
-        seller.demand += 1
-        winner.demand -= 1
         self.update_demand(winner)
         self.update_demand(seller)
+        '''
         for ntype in ['seller', 'buyer']:
             if self.nnodes(ntype)-params.g_max<2:
                new_node = Node(params[ntype]) 
                self.add_star(new_node)  
         '''
+        '''
         The sellers can't add buyers to thier auction. If they
             do it causes instability.
         '''
-        for buyer in self.buyers:
+        print(self.buyers())
+        for buyer in self.buyers():
+            print(buyer)
             if self.nnodes('seller', buyer) < 2:
                 #print("RANOUTOFSELLERS", self.sellers)
                 self.add_edge(buyer, random_choice(self.node_filter('seller')))
          
     def update_demand(self, node):
         global params
-        if node in self:
-            if node.demand == 0:
-                Node.names.append(node.name)
-                self.remove_node(node)
-                new_node = Node(params[node.type]) 
-                self.add_star(new_node)
-                #print("ADDED NODE", new_node.name)
+        node.demand += 1*(-node.demand/abs(node.demand)) 
+        if node.demand == 0:
+            Node.names.append(node.name)
+            new_node = Node(params[node.type]) 
+            self.remove_node(node)
+            print("REMOVED", node.type, "NODE", node.name)
+            self.add_star(new_node)
+            print("ADDED", new_node.type, "NODE", new_node.name)
 
-    def update(self):
-        global params
-        params = self.make_params()
-        for ntype in ['buyer', 'seller']:
-            cnt = self.nnodes(ntype)-params['n'+ntype+'s']
-            if cnt > 2:
-                #print("\n---------------------------------------------\nUPDATE", ntype)
-                self.update_nodes(cnt, ntype)
-            params.nnodes = self.nnodes()
-        return params
-  
     def update_nodes(self, cnt, ntype):
         global params
         for n in range(abs(cnt)):
@@ -165,16 +158,15 @@ class Auction(nxNode):
         sellers = self._node.loc[ self._node.type == 'seller']
         return list(sellers.index)
     def nbuyers(self):
-        return len(self.buyers)
+        return len(self.buyers())
     def nsellers(self):
-        return len(self.sellers)
+        return len(self.sellers())
     def nnodes(self, ntype=None, v=None):
         return len(list(self.node_list(ntype, v)))
 
     def add_edge(self, u, v, ts=None):
         global params
         ts = round(time.time()-params.start_time,4)
-        #print("TARGET",v,'\n---------------------------------\n')
         super().add_edge(u ,v,
                     source=u.name,
                     target=v.name,
@@ -182,20 +174,28 @@ class Auction(nxNode):
                     ts=pd.to_timedelta(ts, unit='ms')
                     )
 
-    def print_auction(self, data=False):
+    def print_auction(self, seller, data=False):
+        global params
+        ts = round(time.time()-params.start_time,4)
+        ts = pd.to_timedelta(ts, unit='ms')
+        print(ts)
         if data:
-            for seller in self.sellers:
-                print(colored(seller, 'magenta'), end=' ') 
+            print(colored(seller, 'magenta'), end=' ') 
             print('')
-            for buyer in self.buyers:
-                print(colored(buyer, 'green'), end=' ')
+            for buyer in self.node_list('buyer', seller):
+                if buyer.winner:
+                    print(colored(buyer, 'green'), end=' ')
+                else:
+                    print(colored(buyer, 'yellow'), end=' ')
+                print('')
             print('')
-        print(colored(str(self.nbuyers)+' buyers', 'green'), end=' ')
-        print(colored(str(self.nsellers)+' sellers', 'magenta')) 
-        for seller in self.sellers:
+        else:
             print(colored(seller.name, 'magenta'), end=' ') 
-            for buyer in self.node_filter('buyer', seller).T:
-                print(colored(buyer.name, 'green'), end=' ')
+            for buyer in self.node_list('buyer', seller):
+                if buyer.winner:
+                    print(colored(buyer.name, 'green'), end=' ')
+                else:
+                    print(colored(buyer.name, 'yellow'), end=' ')
             print('')
         return
  
@@ -224,6 +224,7 @@ def rsample(x, maxn):
         return
 
 def random_choice(x):
-    #print("IN CHOICE", x.index)
+    print("IN CHOICE", x.index)
     n = random.sample(list(x.index),1)
-    return n
+    print(n)
+    return n[0]

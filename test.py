@@ -38,5 +38,11 @@ N=G._node
 E=G._adj
 G.run_auctions(0)
 print("Passed auctioneer test...")
-
-
+Node.name=0
+Node.ids=[]
+sim = MarketSim(make_params)
+rnum=0
+while True:
+    print("\n'---------------------------------ROUND", rnum,'----------------------------------\n')
+    sim.do_round(rnum)
+    rnum+=1

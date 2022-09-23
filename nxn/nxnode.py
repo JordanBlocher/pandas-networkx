@@ -92,14 +92,18 @@ class nxNode(nx.Graph):
                                         )
         _node.set_index(_idx, inplace=True)
         if new_node in self:
-            #self._node.loc[name(_node)] = _node
             self._node.update(_node)
         else:  
-            #print("ADDING", new_node.type, "NODE", new_node.name, type(new_node), "at",  TS())
+            print("ADDING", new_node.type, "NODE", new_node.name, type(new_node), "at",  TS())
+            #index = list(self._node.index)
             self._node = self._node.append(_node)
-        #self._graph[name(new_node)] = new_node
+            #index.append(new_node)
+            #self._node.index = self.node_frame_factory(index)
+            print(self._node)
 
     def add_edge(self, u, v, **attr):
+        if u == v:
+            return
         #print("ADDINGEDGE")
         self.add_node(u)
         self.add_node(v)
@@ -126,12 +130,14 @@ class nxNode(nx.Graph):
         return (u,v) in self._adj.index
  
     def remove_node(self, n):
+        print("REMOVING NODE", n)
         if n in self:
-            for e in self[n].T:
+            for e in self[n].index:
+                #print("REMOVING EDGE", e)
                 self._adj = self._adj.drop(e)
-            self._node.drop(n.name)
-            self._graph.drop(n)
-
+            del self[n]
+            self._node.drop(n)
+    
     def nodes(self, data=False):
         return NodeView(self, data)
 
@@ -186,50 +192,57 @@ class nxNode(nx.Graph):
             return 'NetworkXError: empty update'
     '''
 
-    def __getitem__(self, n):
+    def __getitem__(self, node):
         idx = pd.IndexSlice
         nbrs = pd.Series()
-        if n in self._node.loc[ self._node.type == 'seller'].index:
-            nbrs = self._adj.loc[idx[:,name(n)],:]
+        if node in self._node.loc[ self._node.type == 'seller'].index:
+            nbrs = self._adj.loc[idx[:,name(node)],:]
             #print(self._adj.loc[idx[:,name(n)],:])
             return nbrs
-        if n in self._node.loc[ self._node.type == 'buyer'].index:
+        if node in self._node.loc[ self._node.type == 'buyer'].index:
             #print(self._adj.loc[idx[name(n),:],:])
-            nbrs = self._adj.loc[idx[name(n),:],:]
+            nbrs = self._adj.loc[idx[name(node),:],:]
             try:
                 #print(self._adj.loc[idx[:,name(n)],:])
-                nbrs = nbrs.append(self._adj.loc[idx[:,name(n)],:])
+                nbrs = nbrs.append(self._adj.loc[idx[:,name(node)],:])
             except KeyError:
                 return nbrs
         return nbrs
 
-    def __contains__(self, n):
-        if type(n) == tuple:
-            u,v = n
+    def __delitem__(self, node):
+        print("DELITEM", node)
+        if node in self:
+            row = self._node.loc[self._node.index == node]
+            for col in row.columns:
+                del self.__dict__['_node'][col][node]
+ 
+            self._node = self._node.loc[self._node.index != node]
+
+    def __contains__(self, node):
+        if type(node) == tuple:
+            u,v = node
             #print("\n\ncheckin if (",  u.name, v.name ,") in self, type", type(n), "index", u.graph.index[0], v.graph.index[0])
             return (u.name, v.name) in self._adj.index
         else:
             #print("\n\ncheckin if", n.name,"in self, type", type(n), "index", n.graph.index[0])
             try:
-                return n in self._node.index
+                return node in self._node.index
             except:
                 return False
         
-    def __setattr__(self, k, v):
+    #def __setattr__(self, k, v):
         #print("SET", type(k), k, v, '\n')
-        self.__dict__[k] = v
+      #  self.__dict__[k] = v
 
     def __signal__(self, node):
         pass
 
     def __setattr_node__(self, node):
         if node in self:
-            #print("SELF", self.name, type(self), '\n')
+            #print("SELF", self.name, type(self))
             #print("CHILD", node.name, type(node), node, '\n')
-            #print(self._node.index.get_loc(node))
-            #idx = self._node.index.get_loc(node)
+            #idx=self._node.index.get_loc(node)
             #print(self._node.index[idx])
-            self._node.index.drop(node)
             self.add_node(node)
 
     def __iter__(self):

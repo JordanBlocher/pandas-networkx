@@ -51,6 +51,7 @@ def make_layout():
         ])
 
 start_time = time.time()     
+auction_round = 0
 sim = MarketSim(make_params)
 fig = sim.fig
 
