@@ -68,7 +68,8 @@ class Node(nxNode):
     def __setattr__(self, k, v):
         #print("NODE", self.name, type(k), k, v, '\n')
         self.__dict__[k] = v
-        #self.beacon()
+        if k in self.index:
+            self.__signal__(self)
 
     def inv(node):
         if node.type == 'buyer':

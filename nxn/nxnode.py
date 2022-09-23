@@ -78,6 +78,7 @@ class nxNode(nx.Graph):
         self._node = self.node_attr_frame_factory() 
 
     def add_node(self, new_node, **attr):
+        new_node.__signal__ = self.__setattr_node__
         _idx = self.node_frame_factory({new_node})
         #print("INDEX", index)
         
@@ -217,6 +218,19 @@ class nxNode(nx.Graph):
     def __setattr__(self, k, v):
         #print("SET", type(k), k, v, '\n')
         self.__dict__[k] = v
+
+    def __signal__(self, node):
+        pass
+
+    def __setattr_node__(self, node):
+        if node in self:
+            #print("SELF", self.name, type(self), '\n')
+            #print("CHILD", node.name, type(node), node, '\n')
+            #print(self._node.index.get_loc(node))
+            #idx = self._node.index.get_loc(node)
+            #print(self._node.index[idx])
+            self._node.index.drop(node)
+            self.add_node(node)
 
     def __iter__(self):
         return iter(self._node.index)
