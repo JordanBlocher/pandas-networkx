@@ -52,63 +52,50 @@ def TS():
     return round(time.time() - params.start_time,3)
 
 class nxNode(nx.Graph):
-    
     _adj = _CachedPropertyResetterAdj()
     _node = _CachedPropertyResetterNode()
-    __slots__ = ('_graph',)
-
-    def __getstate__(self, n):
-        return {"_graph": self._graph[n]}
-
-    def __setstate__(self, state, n):
-        print('\n-------------------\n')
-        print("SETTING STATE\n\n\n")
-        self._graph[n] = state["_graph"]
-        print(state['_graph'])
-        print('\n-------------------\n')
 
     graph_attr_frame_factory = pd.DataFrame
+    graph_frame_factory = pd.Index
     node_attr_frame_factory = pd.DataFrame
+    node_frame_factory = pd.Index
     edge_attr_frame_factory = pd.DataFrame
-    index = []
-    columns =[]
+    edge_frame_factory = pd.Index
 
     def __init__(self, **attr):
         try:
             self.graph = self.graph_attr_frame_factory(
-                                                AtlasView(attr),
-                                                columns=self.index
+                                                [attr],
+                                                columns=attr.keys()
                                                 )
-            if self.name != None:
-                self.graph.set_index(pd.Index({self.name}), inplace=True)
-            print(self.graph)
-            self.__set_state__({'_graph': self.graph})
         except:
-            pass
+            self.graph = self.graph_attr_frame_factory([np.array(self)],
+                                                    columns=attr.keys()
+                                                    )
+        idx = self.graph_frame_factory({self})
+        self.graph.set_index(idx, inplace=True)
         self._adj = self.edge_attr_frame_factory() 
         self._node = self.node_attr_frame_factory() 
 
     def add_node(self, new_node, **attr):
-        print("ADDING", new_node.type, "NODE", new_node.name, type(new_node), "at",  TS())
-        index = pd.Index({name(new_node)})
-        index.name = 'name'
+        _idx = self.node_frame_factory({new_node})
+        #print("INDEX", index)
         
         #print('\n-------------------\n')
         #print("NODE", new_node, '\n-------------\n')
-        print("ARRAY",new_node.__array__(), '\n----------------\n')
+        #print("ARRAY",np.array(new_node), '\n----------------\n')
         
         _node = self.node_attr_frame_factory(
-                                        [new_node.__array__()],
+                                        [np.array(new_node)],
                                         columns=new_node.index
                                         )
-        _node.name = name(new_node)
-        _node.set_index(index, inplace=True)
-        #print("_NODE", _node, "index", index)
-        if _node in self:
+        _node.set_index(_idx, inplace=True)
+        if new_node in self:
             #self._node.loc[name(_node)] = _node
             self._node.update(_node)
         else:  
-            self._node=self._node.append(_node)
+            #print("ADDING", new_node.type, "NODE", new_node.name, type(new_node), "at",  TS())
+            self._node = self._node.append(_node)
         #self._graph[name(new_node)] = new_node
 
     def add_edge(self, u, v, **attr):
@@ -117,7 +104,7 @@ class nxNode(nx.Graph):
         self.add_node(v)
         columns = pd.Index(attr.keys())
         index = pd.Index({(u.name, v.name)})
-        df = self.edge_attr_frame_factory(AtlasView(attr), columns=columns)
+        df = self.edge_attr_frame_factory([attr], columns=columns)
         #print("DF",df)
         df.set_index(index, inplace=True)
         key = (u,v)
@@ -141,10 +128,14 @@ class nxNode(nx.Graph):
         if n in self:
             for e in self[n].T:
                 self._adj = self._adj.drop(e)
-            self._node = self._node.drop(n.name)
+            self._node.drop(n.name)
+            self._graph.drop(n)
 
     def nodes(self, data=False):
         return NodeView(self, data)
+
+    def adj(self):
+        return AdjView(self._adj)
 
     def edges(self, data=False):
         return EdgeView(self, data)
@@ -197,11 +188,11 @@ class nxNode(nx.Graph):
     def __getitem__(self, n):
         idx = pd.IndexSlice
         nbrs = pd.Series()
-        if n.name in self._node.loc[ self._node.type == 'seller'].index:
+        if n in self._node.loc[ self._node.type == 'seller'].index:
             nbrs = self._adj.loc[idx[:,name(n)],:]
             #print(self._adj.loc[idx[:,name(n)],:])
             return nbrs
-        if n.name in self._node.loc[ self._node.type == 'buyer'].index:
+        if n in self._node.loc[ self._node.type == 'buyer'].index:
             #print(self._adj.loc[idx[name(n),:],:])
             nbrs = self._adj.loc[idx[name(n),:],:]
             try:
@@ -209,17 +200,19 @@ class nxNode(nx.Graph):
                 nbrs = nbrs.append(self._adj.loc[idx[:,name(n)],:])
             except KeyError:
                 return nbrs
-            return nbrs
+        return nbrs
 
     def __contains__(self, n):
-        print(n,"\n\nin self, type", type(n), "index", n.index)
-        print('\n-------------------\n')
         if type(n) == tuple:
-            return name(n) in self._adj.index
-        elif type(n) == str:
-            return n in self._node.columns or n in self_node.index
+            u,v = n
+            #print("\n\ncheckin if (",  u.name, v.name ,") in self, type", type(n), "index", u.graph.index[0], v.graph.index[0])
+            return (u.name, v.name) in self._adj.index
         else:
-            return n.index[0] in self._node.columns or n.index[0] in self._node.index
+            #print("\n\ncheckin if", n.name,"in self, type", type(n), "index", n.graph.index[0])
+            try:
+                return n in self._node.index
+            except:
+                return False
         
     def __setattr__(self, k, v):
         #print("SET", type(k), k, v, '\n')
@@ -236,7 +229,7 @@ class nxNode(nx.Graph):
             [
                 type(self).__name__,
                 f" with {len(self._node)} nodes and {len(self._adj)} edges",
-                f"{self.graph}",
+                f"{self.graph.values}",
             ]
         )
 

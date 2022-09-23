@@ -27,7 +27,6 @@ def test_add_node(nodes):
     n = nodes[0]
     for i in range(1,len(nodes)):
         n.add_node(nodes[i])
-        print(n.nodes())
     return n
 
 def test_add_edge(nodes):
@@ -43,23 +42,22 @@ def test_add_edge(nodes):
     n9=nodes[9]
 
     n.add_edge(n1,n2,ts=10)
-    n.add_edge(n3,n2,ts=11)
-    n.add_edge(n1,n2,ts=12)
+    n.add_edge(n3,n6,ts=11)
+    n.add_edge(n3,n2,ts=12)
     n.add_edge(n1,n4,ts=13)
-    n.add_edge(n4,n5,ts=13)
-    n.add_edge(n3,n6,ts=13)
-    n.add_edge(n4,n7,ts=13)
-    n.add_edge(n4,n8,ts=13)
+    n.add_edge(n4,n5,ts=14)
+    n.add_edge(n1,n2,ts=15)
+    n.add_edge(n4,n7,ts=16)
+    n.add_edge(n4,n8,ts=17)
     n8.price = 888
-    n.add_edge(n2,n9,ts=13)
-    n.add_edge(n2,n5,ts=13)
+    n.add_edge(n2,n9,ts=18)
+    n.add_edge(n2,n5,ts=19)
     n6.value = 999
-    n.add_edge(n1,n6,ts=13)
-    n.add_edge(n3,n7,ts=13)
-    n.add_edge(n1,n8,ts=13)
+    n.add_edge(n1,n6,ts=20)
+    n.add_edge(n3,n7,ts=21)
+    n.add_edge(n1,n8,ts=22)
     n9.value = 111
-    n.add_edge(n3,n9,ts=13)
- 
+    n.add_edge(n3,n9,ts=23)
     return n
 
 def test_node(params):

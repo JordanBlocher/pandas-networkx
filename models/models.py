@@ -7,10 +7,8 @@ import time
 
 class Clock(nxNode):
 
+    ts = pd.to_timedelta(0)
     index = ['ts', 'winner']
- 
-    name = pd.to_timedelta(0)
-    ts = 0
     T = nxNode()
 
     def __init__(self, seller, winner, neighbors, ts):

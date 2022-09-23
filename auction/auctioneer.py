@@ -26,15 +26,14 @@ was influenced by previous rounds.
 '''
 
 class Auctioneer(Auction):
-
+    name: str = 'auctioneer'
+    index = ['name']
     auctions_history=[]
     df = pd.Series()
     fnum=0
-    auction = None
 
     def __init__(self):
-        self.name='auctioneer'
-        nxNode.__init__(self)
+        nxNode.__init__(self, name=self.name)
 
     def save_frame(self,ts=0):
         df = pd.DataFrame(self._node, index=self._node.index)
