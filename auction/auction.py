@@ -8,7 +8,7 @@ from models import Node
 from nxn import nxNode, spectral_layout, name
 import pandas as pd
 import time
-
+import sys
 
     
 '''
@@ -35,7 +35,6 @@ class Auction(nxNode):
         for node in range(params.nbuyers):
             new_node = Node(params.buyer)
             self.add_star(new_node)
-        print("MADE") 
         #pos = spectral_layout(self, dim=3)
         #print("POS", pos)
         #for node in self.nodes():
@@ -49,7 +48,7 @@ class Auction(nxNode):
         #print("IN FILTER", ntype, '\n------------------------------\n')
         idx=pd.IndexSlice
         nbrs = pd.DataFrame()
-        if v is not None and v in self:
+        if v is not None and v in self._node.index:
             #print("using node", v, '\n------------------------------\n')
             for u,w in self[v].index:
                 if name(u) == name(v):
@@ -57,7 +56,7 @@ class Auction(nxNode):
                 elif name(w) == name(v):
                     nbrs = nbrs.append(self._node.loc[self._node.name == name(u)]) 
             #print("\nNBRS1", list(nbrs.index))
-            if ntype is not None and v in self:
+            if ntype is not None and v in self and not nbrs.empty:
                 nbrs = nbrs.loc[ nbrs['type'] == ntype ]
                 #print("\nNBRSTYPE2", list(nbrs.index))
             #print("\n---------------------------------\n")
@@ -104,35 +103,36 @@ class Auction(nxNode):
   
     def update_auction(self, winner, seller):
         global params
-        self.update_demand(winner)
-        self.update_demand(seller)
-        '''
+        flag = False
+        flag = self.update_demand(winner)
+        flag = self.update_demand(seller)
+        while not flag:
+            time.sleep(.1)
         for ntype in ['seller', 'buyer']:
             if self.nnodes(ntype)-params.g_max<2:
                new_node = Node(params[ntype]) 
                self.add_star(new_node)  
         '''
-        '''
         The sellers can't add buyers to thier auction. If they
             do it causes instability.
         '''
-        print(self.buyers())
         for buyer in self.buyers():
-            print(buyer)
             if self.nnodes('seller', buyer) < 2:
                 #print("RANOUTOFSELLERS", self.sellers)
-                self.add_edge(buyer, random_choice(self.node_filter('seller')))
+                sellers = self.node_filter('seller')
+                self.add_edge(buyer, random_choice(sellers))
          
     def update_demand(self, node):
         global params
         node.demand += 1*(-node.demand/abs(node.demand)) 
         if node.demand == 0:
-            Node.names.append(node.name)
             new_node = Node(params[node.type]) 
+            Node.names.append(node.name)
             self.remove_node(node)
-            print("REMOVED", node.type, "NODE", node.name)
+            #print("REMOVED", node.type, "NODE", node.name)
             self.add_star(new_node)
-            print("ADDED", new_node.type, "NODE", new_node.name)
+            #print("ADDED", new_node.type, "NODE", new_node.name)
+        return True
 
     def update_nodes(self, cnt, ntype):
         global params
@@ -197,7 +197,8 @@ class Auction(nxNode):
                 else:
                     print(colored(buyer.name, 'yellow'), end=' ')
             print('')
-        return
+        sys.stdout.flush()
+        sys.stderr.flush()
  
     def __str__(self):
         return f"{self.name}"
@@ -224,7 +225,6 @@ def rsample(x, maxn):
         return
 
 def random_choice(x):
-    print("IN CHOICE", x.index)
+    #print("IN CHOICE", x.index)
     n = random.sample(list(x.index),1)
-    print(n)
     return n[0]

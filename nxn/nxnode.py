@@ -94,12 +94,11 @@ class nxNode(nx.Graph):
         if new_node in self:
             self._node.update(_node)
         else:  
-            print("ADDING", new_node.type, "NODE", new_node.name, type(new_node), "at",  TS())
-            #index = list(self._node.index)
+            #print("ADDING", new_node.type, "NODE", new_node.name, type(new_node), "at",  TS())
+            index = list(self._node.index)
             self._node = self._node.append(_node)
-            #index.append(new_node)
-            #self._node.index = self.node_frame_factory(index)
-            print(self._node)
+            index.append(new_node)
+            self._node.index = self.node_frame_factory(index)
 
     def add_edge(self, u, v, **attr):
         if u == v:
@@ -194,46 +193,45 @@ class nxNode(nx.Graph):
 
     def __getitem__(self, node):
         idx = pd.IndexSlice
-        nbrs = pd.Series()
+        nbrs = pd.DataFrame()
         if node in self._node.loc[ self._node.type == 'seller'].index:
-            nbrs = self._adj.loc[idx[:,name(node)],:]
-            #print(self._adj.loc[idx[:,name(n)],:])
+            try:
+                nbrs = self._adj.loc[idx[:,name(node)],:]
+                #print(self._adj.loc[idx[:,name(node)],:])
+            except KeyError:
+                print("Node", node, "is not connected")
             return nbrs
         if node in self._node.loc[ self._node.type == 'buyer'].index:
-            #print(self._adj.loc[idx[name(n),:],:])
-            nbrs = self._adj.loc[idx[name(node),:],:]
             try:
-                #print(self._adj.loc[idx[:,name(n)],:])
-                nbrs = nbrs.append(self._adj.loc[idx[:,name(node)],:])
+                #print(self._adj.loc[idx[name(node),:],:])
+                nbrs = self._adj.loc[idx[name(node),:],:]
             except KeyError:
-                return nbrs
+                print("Node", node, "is not connected")
+                try:
+                    print(self._adj.loc[idx[:,name(node)],:])
+                    print(type(self._adj.loc[idx[:,name(node)],:]))
+                    nbrs = nbrs.append(self._adj.loc[idx[:,name(node)],:])
+                except KeyError:
+                    return nbrs
         return nbrs
 
     def __delitem__(self, node):
-        print("DELITEM", node)
         if node in self:
-            row = self._node.loc[self._node.index == node]
-            for col in row.columns:
-                del self.__dict__['_node'][col][node]
- 
+            #row = self._node.loc[self._node.index == node]
+            #for col in row.columns:
+            #    del self.__dict__['_node'][col][node]
             self._node = self._node.loc[self._node.index != node]
 
     def __contains__(self, node):
         if type(node) == tuple:
             u,v = node
-            #print("\n\ncheckin if (",  u.name, v.name ,") in self, type", type(n), "index", u.graph.index[0], v.graph.index[0])
             return (u.name, v.name) in self._adj.index
         else:
-            #print("\n\ncheckin if", n.name,"in self, type", type(n), "index", n.graph.index[0])
             try:
                 return node in self._node.index
             except:
                 return False
         
-    #def __setattr__(self, k, v):
-        #print("SET", type(k), k, v, '\n')
-      #  self.__dict__[k] = v
-
     def __signal__(self, node):
         pass
 

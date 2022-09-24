@@ -34,7 +34,7 @@ class Node(nxNode):
         else:
             Node.name +=1
             self.name = Node.name
-        print("ADDING NODE", self.name)
+        #print("ADDING NODE", self.name)
         
         self.demand = rng.randint(1, 
                             params.max_quantity

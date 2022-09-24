@@ -9,6 +9,7 @@ def make_params():
     global nbuyers, nsellers, noise, rounds, start_time
 
     rng = nx.utils.create_random_state()
+    rng.seed(random.randint(1,999999))
 
     df=pd.read_csv('./params/params.dat').loc[0]
     nnodes = df.nbuyers+df.nsellers

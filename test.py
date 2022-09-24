@@ -14,8 +14,8 @@ from termcolor import colored
 from tests import *
 
 values = pd.read_csv('./params/params.dat')
-values.loc[0,'nbuyers']=11
-values.loc[0,'sellers']=7
+values.loc[0,'nbuyers']=25
+values.loc[0,'sellers']=17
 f = open('./params/params.dat','w')
 f.write(values.to_csv(index=False).strip())
 f.close()
