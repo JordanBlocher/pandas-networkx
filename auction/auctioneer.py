@@ -26,7 +26,6 @@ class Auctioneer(Auction):
     name: str = 'auctioneer'
     index = ['name']
     df = pd.DataFrame()
-    df_e = pd.DataFrame()
     df_r = pd.DataFrame()
 
     def save_frame(self,ts=0,rnum=0):
@@ -36,18 +35,16 @@ class Auctioneer(Auction):
                         index=[rnum for n in range(len(self._node.index))]
                         )
         #df.set_index('ts', inplace=True)
-        df_e = pd.DataFrame(
-                        self._adj.values, 
-                        columns=self._adj.columns,
-                        index=[rnum for n in range(len(self._adj.index))]
-                        )
-        #df_e.set_index('ts', inplace=True)
         self.df = self.df.append(df)
-        self.df_e = self.df_e.append(df_e)
         idx = pd.IndexSlice
         return pd.Series(dict(
                             nodes=self.df,
-                            edges=self.df_e,
+                            edges=pd.DataFrame(
+                                self._adj.values, 
+                                columns=self._adj.columns,
+                                index=[rnum for n in range(len(self._adj.index))]
+                            ),
+                            result=self.df_r,
                             data=dict(
                                 auctions=[
                                             (v, list(self.node_list('buyer', v)))
@@ -57,7 +54,6 @@ class Auctioneer(Auction):
                                             (n,[v for v in self._adj.loc[idx[:,n],:].index])
                                             for n in self.buyers()
                                 ],
-                                result=self.df_r
                             )
                         )
                     )
@@ -102,7 +98,6 @@ class Auctioneer(Auction):
         params = self.update()
 
         self.df = pd.DataFrame()
-        self.df_e = pd.DataFrame()
         self.df_r = pd.DataFrame()
         self.auction_state = pd.Series()
         winners = []
@@ -118,27 +113,14 @@ class Auctioneer(Auction):
 
             self.print_auction(seller)
 
+        end_time = time.thread_time()
+        ts = round(time.time()-params.start_time,4)
+        ts = pd.to_timedelta(ts, unit='ms')
+        frame = self.save_frame(ts, rnum)
         for n in winners:
             n.type = 'buyer' 
-        end_time = time.thread_time()
-
-        idx = pd.IndexSlice
-        auction_state = pd.Series(dict(
-                            nodes=self.df,
-                            edges=self.df_e,
-                            data=dict(
-                                auctions=[
-                                    (v, list(self.node_list('buyer', v)))
-                                    for v in self.sellers()
-                                ],
-                                neighbors=[
-                                    (n,[v for v in self._adj.loc[idx[:,n],:].index])
-                                    for n in self.buyers()
-                                ],
-                                result = self.df_r
-                            ))
-                        )
-        return auction_state
+        return frame
+ 
 
     def calculate_consistent_bid(self, buyer, sellers, neighbors):
         global params, auction_round
@@ -170,7 +152,7 @@ class Auctioneer(Auction):
         ts = round(time.time()-params.start_time,4)
         ts = pd.to_timedelta(ts, unit='ms')
         buyer.ts = ts
-        self.save_frame(ts, auction_round)
+        #self.save_frame(ts, auction_round)
         return bprice
  
     def second_price_winner(self, seller, buyers):
@@ -194,7 +176,7 @@ class Auctioneer(Auction):
         ts = pd.to_timedelta(ts, unit='ms')
         winner.ts = ts
         winner.type = 'winner'
-        self.save_frame(ts, auction_round)
+        #self.save_frame(ts, auction_round)
         #Clock(seller, winner, self.node_filter('buyer', winner), ts)
         return winner
 
@@ -217,7 +199,7 @@ class Auctioneer(Auction):
         ts = round(time.time()-params.start_time,4)
         ts = pd.to_timedelta(ts, unit='ms')
         seller.ts = ts
-        self.save_frame(ts, auction_round)
+        #self.save_frame(ts, auction_round)
         return mprice
 
     '''

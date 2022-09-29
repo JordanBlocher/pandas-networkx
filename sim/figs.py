@@ -13,54 +13,99 @@ import plotly.colors as cm
 
 sns.set()
 
-def go_parcoords(sim, df, cscale, params, rnum):
-    k=rnum
+def go_parcoords(sim, nodes, cscale, params, rnum):
+    dimensions = []
+    dimensions.append(
+        dict(
+            range = [1, max(nodes[rnum]['name'])],
+            label = 'Nodes', 
+            tickvals = [v.name for v in sim.auctioneer.node_list()],
+            ticktext = [v.name for v in sim.auctioneer.node_list()],
+            values = nodes[rnum]['name']
+        )
+    )
+    dimensions.append(
+        dict(
+            range = [1, max(nodes[rnum]['name'])],
+            label = 'Buyers', 
+            tickvals = [v.name for v in sim.auctioneer.node_list('buyer')],
+            ticktext = [v.name for v in sim.auctioneer.node_list('buyer')],
+            values = nodes[rnum]['name']
+        )
+    )
+    dimensions.append(
+        dict(
+            range = [1, max(nodes[rnum]['name'])],
+            label = 'Sellers', 
+            tickvals = [v.name for v in sim.auctioneer.node_list('seller')],
+            ticktext = [v.name for v in sim.auctioneer.node_list('seller')],
+            values = nodes[rnum]['name']
+        )
+    )
+    for k in range(max(0,rnum-10),rnum):
+        dimensions.append(
+            dict(
+                label = 'Round' + str(k) + 'price', 
+                range = [0, max(nodes[k]['price'])+10],
+                values = nodes[k]['price']
+            )
+        )
+        dimensions.append(
+            dict(
+                range = [1, max(nodes[rnum]['name'])],
+                label = 'Winners', 
+                tickvals = [v.name for v in sim.auctioneer.node_list('winner')],
+                ticktext = [v.name for v in sim.auctioneer.node_list('winner')],
+                values = nodes[rnum]['name']
+            )
+        )
+        dimensions.append(
+            dict(
+                label = 'Round' + str(k) + 'value', 
+                range = [0, max(nodes[k]['value'])+10],
+                values = nodes[k]['value']
+            )
+        )
+ 
     return go.Parcoords(
             line = dict(
-                    color = df[k]['color'],
+                    color = nodes[rnum]['color'],
                     colorscale = cscale,
                 ),
-            dimensions = [
-            dict(
-                range = [1, max(df[k]['name'])],
-                label = 'Nodes', 
-                tickvals = [v.name for v in sim.auctioneer.node_list()],
-                ticktext = [v.name for v in sim.auctioneer.node_list()],
-                values = df[k]['name']
-            ),
-            dict(
-                label = 'Price', 
-                range = [0, max(df[k]['price'])+10],
-                values = df[k]['price']
-            ),
-            dict(
-                label = 'Value', 
-                range = [0, max(df[k]['price'])+10],
-                values = df[k]['value']
-            )
-            ]
+            dimensions = dimensions
         )
 
-def go_scatter(sim, df, cscale, msize, rnum):
-    print(df[rnum]['ts'])
+def go_scatter(sim, nodes, cscale, msize, rnum):
     x=[]
     y=[]
     color=[]
     ntype=[]
+    ids=[]
     for k in range(max(0,rnum-5), rnum):
-       [x.append(k) for i in range(len(df[k]['pos_x']))] 
-       [y.append(j) for j in df[k]['pos_y']]
-       [color.append(j) for j in df[k]['color']]
-       [ntype.append(j) for j in df[k]['type']]
-    return go.Scattergl(
+        print("NODESK",nodes[k])
+        for j in nodes[k]['type']:
+            if j == 'seller':
+                x.append(k+0.5)
+            else:
+                x.append(k)
+        for j in nodes[k]['name']:
+            ids.append(j)
+            y.append(sim.auctioneer.layout[int(j)][1]) 
+        for j in nodes[k]['color']:
+            color.append(j)
+        for j in nodes[k]['type']:
+            ntype.append(j)
+    print("============================HERE============================")
+    return go.Scatter(
                 x=x,
                 y=y,
-                hoverinfo='text',
                 hovertext=ntype,
                 hovertemplate='<b>%{hovertext}</b><extra></extra>',
-                showlegend=False,
+                ids=ids,
+                text=ids,
+                showlegend=True,
                 mode = 'markers',
-                opacity = 0.5,
+                opacity = 0.9,
                 marker = {  
                             'color': color,
                             'colorscale': cscale,
@@ -71,26 +116,59 @@ def go_scatter(sim, df, cscale, msize, rnum):
 def go_line(sim, nodes, edges, cscale, rnum):
     x=[]
     y=[]
+    color=[]
     for k in range(max(0,rnum-5), rnum):
-        print(edges[k])
-        for n in range(len(edges[k])):
-            print(n)
+        u = list(edges[k]['source'])
+        v = list(edges[k]['target'])
+        print(u,v)
+        print("****************************HERE****************************")
+        print("EDGES", [(u[n],v[n]) for n in range(len(v))])
+        for n in range(len(edges[k]['source'])):
+            maxu = max(edges[k]['source'])
             u = edges[k]['source'][n]
             v = edges[k]['target'][n]
             x.append(k)
-            x.append(k)
-            y.append(nodes[k]['pos_y'][u])
-            y.append(nodes[k]['pos_y'][v])
+            if edges[k]['type'][n] == 'bid':
+                x.append(k+0.5)
+            else:
+                x.append(k+1)
+            y.append(sim.auctioneer.layout[u][1])
+            y.append(sim.auctioneer.layout[v][1])
+            color.append(u/maxu)
             x.append(None)
             y.append(None)
-    return go.Scatter3d(
+    return go.Scatter(
                     x=x,
                     y=y,
                     mode='lines',
                     line = {  
-                            'width' : .2
+                            'width' : 0.5,
+                            'color' : 'lightgrey'
                             },
                     )
+
+def go_sankey(sim, nodes, edges, cscale, rnum):
+    k=rnum
+    return go.Sankey(
+        valueformat = ".0f",
+        valuesuffix = "TWh",
+        # Define nodes
+        node = dict(
+          pad = 15,
+          thickness = 15,
+          line = dict(color = "black", width = 0),
+          label =  nodes[k]['name'],
+          color =  cm.sample_colorscale(cscale, nodes[k]['color'], high=max(nodes[k]['color']))
+        ),
+        # Add links
+        link = dict(
+          source = edges[k]['source'],
+          target = edges[k]['target'],
+          value =  edges[k]['capacity'],
+          label = edges[k]['source'],
+          color =  cm.sample_colorscale(cscale, nodes[k]['color'], high=max(nodes[k]['color']))
+        )
+    )
 
 def go_auctioncoords(sim, df, cscale, params, rnum):
     sim.ntraces+=1
@@ -135,6 +213,7 @@ def go_auctioncoords(sim, df, cscale, params, rnum):
             )
             ])
         )
+
 def go_scatter3d(sim, df, cscale, surfcolor, msize):
     sim.ntraces+=1
     return go.Scatter3d(

@@ -9,8 +9,6 @@ import pandas as pd
 import time
 from collections import namedtuple
 
-Point3d = namedtuple('Point3d', ['x', 'y', 'z'])
-
 
 class Node(nxNode):
     name: int = 0
@@ -19,9 +17,8 @@ class Node(nxNode):
     price: float
     color: float
     type: str
-    pos: [int]
     names = []     
-    index = ['name', 'demand', 'value', 'price', 'color', 'type', 'pos_x', 'pos_y', 'pos_z', 'ts'] # ts marks price changes
+    index = ['name', 'demand', 'value', 'price', 'color', 'type', 'ts'] # ts marks price changes
 
     def __init__(self, params):
         rng = nx.utils.create_random_state()
@@ -41,27 +38,21 @@ class Node(nxNode):
                         params.price[self.name], 
                       2
                       )
-        self.color = self.price/params.max_price*params.flow
+        self.color = self.price/params.max_price
         if params.flow < 0: 
             self.type = 'buyer'
         else:
             self.type = 'seller'
-        self.pos_x = self.price
-        self.pos_y = self.name
-        self.pos_z = 0#20*params.flow
         self.ts = pd.to_timedelta(0, unit='ms')
                     
         self.winner = False
         nxNode.__init__(self, 
-                    name=self.name,
+                    name=int(self.name),
                     demand=self.demand,
                     value=self.value,
                     price=self.price,
                     color=self.color,
                     type=self.type,
-                    pos_x=self.pos_x,
-                    pos_y=self.pos_y,
-                    pos_z=self.pos_z,
                     ts=self.ts
                     )         
 
@@ -79,7 +70,7 @@ class Node(nxNode):
             return 'buyer'
     
     def __array__(self, dtype=np.dtype('object')):
-        return np.ndarray((10,),
+        return np.ndarray((7,),
                 buffer=np.array([
                         int(self.name),
                         self.demand,
@@ -87,9 +78,6 @@ class Node(nxNode):
                         self.price,
                         self.color,
                         self.type,
-                        self.pos_x,
-                        self.pos_y,
-                        self.pos_z,
                         self.ts
                 ], dtype=object),
                 dtype=object)
@@ -98,7 +86,7 @@ class Node(nxNode):
         return f"{self.__array__()}"
 
     def __repr__(self):
-        return str(self.name)
+        return str(int(self.name))
     '''
 
     def __to_dict__(self):
@@ -109,6 +97,5 @@ class Node(nxNode):
                 'price': self.price,
                 'type': self.type,
                 'color': self.color,
-                'pos': self.pos
             }
     '''

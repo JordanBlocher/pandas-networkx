@@ -43,8 +43,8 @@ Node.name=0
 Node.ids=[]
 '''
 sim = MarketSim(make_params)
-rnum=0
+rnum=1
 while True:
-    print("\n'---------------------------------ROUND", rnum,'----------------------------------\n')
+    print("\n---------------------------------ROUND", rnum,'----------------------------------\n')
     sim.do_round(rnum)
     rnum+=1

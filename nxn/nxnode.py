@@ -22,6 +22,7 @@ class nxAccessor:
             self.map[node.name] = node
 
     def __getitem__(self, n):
+        print(self.map)
         return self.map[n]
 
     def __getattr__(self, n, k):
@@ -144,12 +145,13 @@ class nxNode(nx.Graph):
  
     def remove_node(self, n):
         #print("REMOVING NODE", n)
+        for e in self[n].index:
+            self._adj.drop(e, inplace=True)
+            del self[e]
+            #print("REMOVING EDGE", e)
         if n in self:
-            for e in self[n].index:
-                #print("REMOVING EDGE", e)
-                self._adj = self._adj.drop(e)
-            del self[n]
-            self._node.drop(n)
+           self._node.drop(n, inplace=True)
+           del self[n]
     
     def nodes(self, data=False):
         return NodeView(self, data)
@@ -208,28 +210,25 @@ class nxNode(nx.Graph):
     def __getitem__(self, node):
         idx = pd.IndexSlice
         nbrs = pd.DataFrame()
-        if node in self._node.loc[ self._node.type == 'seller'].index:
-            try:
-                nbrs = self._adj.loc[idx[:,name(node)],:]
-                #print(self._adj.loc[idx[:,name(node)],:])
-            except KeyError:
-                #print("Node", node, "is not connected")
-                pass
-            return nbrs
-        if node in self._node.loc[ self._node.type == 'buyer'].index:
-            try:
-                #print(self._adj.loc[idx[name(node),:],:])
-                nbrs = self._adj.loc[idx[name(node),:],:]
-            except KeyError:
-                #print("Node", node, "is not connected")
-                pass
-                try:
-                    #print(self._adj.loc[idx[:,name(node)],:])
-                    #print(type(self._adj.loc[idx[:,name(node)],:]))
-                    nbrs = nbrs.append(self._adj.loc[idx[:,name(node)],:])
-                except KeyError:
-                    return nbrs
-        return nbrs
+        try:
+            nbrs = self._adj.loc[idx[:,name(node)],:]
+            #print(self._adj.loc[idx[:,name(node)],:])
+        except KeyError:
+            #print("Node", node, "is not connected")
+            pass
+        try:
+            #print(self._adj.loc[idx[name(node),:],:])
+            nbrs = nbrs.append(self._adj.loc[idx[name(node),:],:])
+        except KeyError:
+            pass
+            #print("Node", node, "is not connected")
+        try:
+            #print(self._adj.loc[idx[:,name(node)],:])
+            #print(type(self._adj.loc[idx[:,name(node)],:]))
+            nbrs = nbrs.append(self._adj.loc[idx[:,name(node)],:])
+        except KeyError:
+            pass
+        return nbrs.drop_duplicates()
 
     def __delitem__(self, node):
         if node in self:
@@ -237,11 +236,16 @@ class nxNode(nx.Graph):
             #for col in row.columns:
             #    del self.__dict__['_node'][col][node]
             self._node = self._node.loc[self._node.index != node]
+        if type(node) == tuple:
+            u,v = node
+            #print((name(u), name(v)) in self._adj.index)
+            #print(self._adj.loc[self._adj.index != (name(u), name(v))])
+            self._adj = self._adj.loc[self._adj.index != (name(u), name(v))]
 
     def __contains__(self, node):
         if type(node) == tuple:
             u,v = node
-            return (u.name, v.name) in self._adj.index
+            return (name(u), name(v)) in self._adj.index
         else:
             try:
                 return node in self._node.index

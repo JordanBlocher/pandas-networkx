@@ -24,13 +24,14 @@ and is updated the next time a player challenges the price.
 class Auction(nxNode):
     name: str = 'auction'
     index = ['name']
-    layout = None
+    layout = {}
 
     def make_graph(self):
         global params, rng
         rng = nx.utils.create_random_state()
         params = self.make_params()
         self.start_time = params.start_time
+        print("GMAX", params.g_max)
 
         for node in range(params.nsellers):
             new_node = Node(params.seller)
@@ -45,11 +46,8 @@ class Auction(nxNode):
             pos = np.array(layout[node]).round(2) 
             #pos = np.clip(pos, 0, params.clamp)
             self.layout[node.name] = pos
-            node.pos_x = pos[0]
-            node.pos_y = pos[1]
-            node.pos_z = pos[2]
     
-        self._node = self._node.astype({'name':np.int, 'value':np.float, 'demand':np.int, 'price':np.float, 'pos_x':np.float, 'pos_y':np.float, 'pos_z':np.float})
+        self._node = self._node.astype({'name':np.int, 'value':np.float, 'demand':np.int, 'price':np.float})
 
         for seller in self.sellers():
             self.print_auction(seller)
@@ -99,6 +97,11 @@ class Auction(nxNode):
         except StopIteration:
             return
         self.add_node(v)
+        if v.name not in self.layout.keys():
+            layout = spectral_layout(self, dim=3)
+            pos = np.array(layout[v]).round(2) 
+            self.layout[v.name] = pos
+ 
         #print("CENTER", name(v), '\n')
         edges = ((v, n) for n in nlist)
         for v, n in edges:
@@ -161,12 +164,16 @@ class Auction(nxNode):
 
     def add_edge(self, u, v, ts=None):
         global params
+        if v.type == 'seller':
+            etype = 'bid'
+        else:
+            etype = 'data'
         ts = round(time.time()-params.start_time,4)
         super().add_edge(u ,v,
                     source=u.name,
                     target=v.name,
                     capacity=u.price, 
-                    demand=u.demand,
+                    type=etype,
                     ts=pd.to_timedelta(ts, unit='ms')
                     )
 
