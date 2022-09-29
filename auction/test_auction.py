@@ -5,7 +5,7 @@ from params import make_params
 from models import Node
 
 
-def test_auctioneer():
+def auctioneer():
     auctioneer = Auctioneer()
     auctioneer.make_params = make_params
     auctioneer.make_graph()
@@ -14,8 +14,7 @@ def test_auctioneer():
     return auctioneer
 
 
-#@pytest.fixture
-def test_auction():
+def auction():
     auction = Auction()
     auction.make_params = make_params
     auction.make_graph()
@@ -61,4 +60,8 @@ def test_add_node(auction, params):
         raise 'add node to node failed'
 
 
+def test_auction():
+    return auction()
 
+def test_auctioneer():
+    return auctioneer()

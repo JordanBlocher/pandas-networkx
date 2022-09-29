@@ -3,12 +3,14 @@ import networkx as nx
 import random
 from termcolor import colored
 import seaborn as sns
+np.set_printoptions(precision=2)
 
 from models import Node
 from nxn import nxNode, spectral_layout, name
 import pandas as pd
 import time
 import sys
+from collections import namedtuple
 
     
 '''
@@ -18,10 +20,11 @@ players price changes. The memory in the auction is flash,
 and is updated the next time a player challenges the price.
 '''
 
+
 class Auction(nxNode):
     name: str = 'auction'
     index = ['name']
-
+    layout = None
 
     def make_graph(self):
         global params, rng
@@ -35,10 +38,21 @@ class Auction(nxNode):
         for node in range(params.nbuyers):
             new_node = Node(params.buyer)
             self.add_star(new_node)
-        #pos = spectral_layout(self, dim=3)
-        #print("POS", pos)
-        #for node in self.nodes():
-         #   node.pos = pos[node] 
+
+        self.layout = {}
+        layout = spectral_layout(self, dim=3)
+        for node in layout:
+            pos = np.array(layout[node]).round(2) 
+            #pos = np.clip(pos, 0, params.clamp)
+            self.layout[node.name] = pos
+            node.pos_x = pos[0]
+            node.pos_y = pos[1]
+            node.pos_z = pos[2]
+    
+        self._node = self._node.astype({'name':np.int, 'value':np.float, 'demand':np.int, 'price':np.float, 'pos_x':np.float, 'pos_y':np.float, 'pos_z':np.float})
+
+        for seller in self.sellers():
+            self.print_auction(seller)
 
     def node_list(self, ntype=None, v=None):
         nodes = self.node_filter(ntype, v)
@@ -94,17 +108,14 @@ class Auction(nxNode):
     def update(self):
         global params
         params = self.make_params()
-        for ntype in ['buyer', 'seller']:
-            cnt = self.nnodes(ntype)-params['n'+ntype+'s']
-            if cnt > 1:
-                self.update_nodes(cnt, ntype)
-            params.nnodes = self.nnodes()
         return params
   
     def update_auction(self, winner, seller):
         global params
         flag = False
+        winner.type='buyer'
         flag = self.update_demand(winner)
+        winner.type='winner'
         flag = self.update_demand(seller)
         while not flag:
             time.sleep(.1)
@@ -128,28 +139,12 @@ class Auction(nxNode):
         if node.demand == 0:
             new_node = Node(params[node.type]) 
             Node.names.append(node.name)
+            self.df_r.append(node.graph)
             self.remove_node(node)
             #print("REMOVED", node.type, "NODE", node.name)
             self.add_star(new_node)
             #print("ADDED", new_node.type, "NODE", new_node.name)
         return True
-
-    def update_nodes(self, cnt, ntype):
-        global params
-        for n in range(abs(cnt)):
-            if cnt < 0:
-                new_node = Node(params[ntype])
-                self.add_star(new_node) 
-            else:
-                #print("CHOOSING FROM", self.node_filter(ntype), ntype)
-                choice = random_choice(self.node_filter(ntype))
-                #print("CHOICE", name(choice),'\n', choice,'\n-------------------\n')
-                Node.names.append(name(choice))
-                #print("ADDED", name(choice), "TO POOL")
-                self.remove_node(choice)
-                #print(self.nodes())
-                #print(Node.names, "LEFT\n")
-        params['n'+ntype+'s']=self.nnodes(ntype)
 
     def buyers(self):
         buyers = self._node.loc[ self._node.type == 'buyer']
@@ -171,6 +166,7 @@ class Auction(nxNode):
                     source=u.name,
                     target=v.name,
                     capacity=u.price, 
+                    demand=u.demand,
                     ts=pd.to_timedelta(ts, unit='ms')
                     )
 

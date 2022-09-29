@@ -14,15 +14,15 @@ from termcolor import colored
 from tests import *
 
 values = pd.read_csv('./params/params.dat')
-values.loc[0,'nbuyers']=25
-values.loc[0,'sellers']=17
+values.loc[0,'nbuyers']=5
+values.loc[0,'nsellers']=4
 f = open('./params/params.dat','w')
 f.write(values.to_csv(index=False).strip())
 f.close()
 
 params=make_params()
 
-
+'''
 nd, nds = test_node(params)
 Node.name=0
 Node.ids=[]
@@ -30,6 +30,7 @@ print("Passed node test...")
 g = test_auction()
 n=g._node
 e=g._adj
+#pos = spectral_layout(g, dim=3)
 print("Passed auction test...")
 Node.name=0
 Node.ids=[]
@@ -40,6 +41,7 @@ G.run_auctions(0)
 print("Passed auctioneer test...")
 Node.name=0
 Node.ids=[]
+'''
 sim = MarketSim(make_params)
 rnum=0
 while True:

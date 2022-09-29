@@ -2,17 +2,14 @@ import random
 import numpy as np
 np.set_printoptions(precision=2)
 import networkx as nx
-import seaborn as sns
 import inspect
-from nxn import nxNode, AtlasView
+from nxn import nxNode
 import time
 import pandas as pd
-from pandas.core.dtypes.dtypes import register_extension_dtype
+import time
+from collections import namedtuple
 
-from pandas.api.extensions import (
-    ExtensionArray,
-    ExtensionDtype,
-)
+Point3d = namedtuple('Point3d', ['x', 'y', 'z'])
 
 
 class Node(nxNode):
@@ -22,9 +19,9 @@ class Node(nxNode):
     price: float
     color: float
     type: str
-    pos: tuple
+    pos: [int]
     names = []     
-    index = ['name', 'demand', 'value', 'price', 'color', 'type', 'pos']
+    index = ['name', 'demand', 'value', 'price', 'color', 'type', 'pos_x', 'pos_y', 'pos_z', 'ts'] # ts marks price changes
 
     def __init__(self, params):
         rng = nx.utils.create_random_state()
@@ -39,22 +36,21 @@ class Node(nxNode):
         self.demand = rng.randint(1, 
                             params.max_quantity
                             ) * params.flow
-        self.value = 0
+        self.value = -1
         self.price = round(
-                        params.init_factor*params.price[self.name], 
+                        params.price[self.name], 
                       2
                       )
-        self.color = int(self.price)*params.flow
+        self.color = self.price/params.max_price*params.flow
         if params.flow < 0: 
             self.type = 'buyer'
         else:
             self.type = 'seller'
-        self.pos = tuple(np.array([
-                            self.name*20, 
-                            self.color*params.flow,
-                            0
-                            ], dtype=int)
-                        )
+        self.pos_x = self.price
+        self.pos_y = self.name
+        self.pos_z = 0#20*params.flow
+        self.ts = pd.to_timedelta(0, unit='ms')
+                    
         self.winner = False
         nxNode.__init__(self, 
                     name=self.name,
@@ -63,9 +59,11 @@ class Node(nxNode):
                     price=self.price,
                     color=self.color,
                     type=self.type,
-                    pos=self.pos
-                    )
-                        
+                    pos_x=self.pos_x,
+                    pos_y=self.pos_y,
+                    pos_z=self.pos_z,
+                    ts=self.ts
+                    )         
 
     def __setattr__(self, k, v):
         self.__dict__[k] = v
@@ -81,7 +79,7 @@ class Node(nxNode):
             return 'buyer'
     
     def __array__(self, dtype=np.dtype('object')):
-        return np.ndarray((7,),
+        return np.ndarray((10,),
                 buffer=np.array([
                         int(self.name),
                         self.demand,
@@ -89,7 +87,10 @@ class Node(nxNode):
                         self.price,
                         self.color,
                         self.type,
-                        self.pos
+                        self.pos_x,
+                        self.pos_y,
+                        self.pos_z,
+                        self.ts
                 ], dtype=object),
                 dtype=object)
     

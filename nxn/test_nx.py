@@ -1,5 +1,4 @@
 import pytest 
-from nx import *
 
 @pytest.fixture
 def nodes():
@@ -42,3 +41,6 @@ def nodes():
         node = nxNode(id=i, ts=i)
         nodes.append(node)
     return nodes
+
+def test_to_numpy():
+

@@ -3,15 +3,29 @@ import numpy as np
 import networkx as nx
 import inspect
 import pandas as pd
-np.set_printoptions(precision=2)
 import inspect
 from params import make_params
 import time
 from .views import AdjView, EdgeView, NodeView, AtlasView, EdgeSet
 from termcolor import colored
-from collections import namedtuple
+
+from pandas.api.extensions import register_index_accessor
 
 __all__ = ["nxNode"]
+
+@pd.api.extensions.register_dataframe_accessor("nx")
+class nxAccessor:
+    def __init__(self, pandas_obj):
+        self._obj = pandas_obj
+        self.map = {}
+        for node in pandas_obj.index:
+            self.map[node.name] = node
+
+    def __getitem__(self, n):
+        return self.map[n]
+
+    def __getattr__(self, n, k):
+        return self.map[n][k]
 
 
 class _CachedPropertyResetterAdj:
@@ -129,7 +143,7 @@ class nxNode(nx.Graph):
         return (u,v) in self._adj.index
  
     def remove_node(self, n):
-        print("REMOVING NODE", n)
+        #print("REMOVING NODE", n)
         if n in self:
             for e in self[n].index:
                 #print("REMOVING EDGE", e)
@@ -199,17 +213,19 @@ class nxNode(nx.Graph):
                 nbrs = self._adj.loc[idx[:,name(node)],:]
                 #print(self._adj.loc[idx[:,name(node)],:])
             except KeyError:
-                print("Node", node, "is not connected")
+                #print("Node", node, "is not connected")
+                pass
             return nbrs
         if node in self._node.loc[ self._node.type == 'buyer'].index:
             try:
                 #print(self._adj.loc[idx[name(node),:],:])
                 nbrs = self._adj.loc[idx[name(node),:],:]
             except KeyError:
-                print("Node", node, "is not connected")
+                #print("Node", node, "is not connected")
+                pass
                 try:
-                    print(self._adj.loc[idx[:,name(node)],:])
-                    print(type(self._adj.loc[idx[:,name(node)],:]))
+                    #print(self._adj.loc[idx[:,name(node)],:])
+                    #print(type(self._adj.loc[idx[:,name(node)],:]))
                     nbrs = nbrs.append(self._adj.loc[idx[:,name(node)],:])
                 except KeyError:
                     return nbrs

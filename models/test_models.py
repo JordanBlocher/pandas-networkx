@@ -1,27 +1,17 @@
 import pytest 
 from .node import Node
-from params import make_params
-import pandas as pd
 
-#@pytest.fixture
+@pytest.fixture
 def params():
     params = make_params()
     return params
 
-#@pytest.fixture
 def nodes(params):
     nodes = []
     for ntype in ['buyer', 'seller']:
         for i in range(params['n'+str(ntype)+'s']):
             nodes.append(Node(params[ntype]))
     return nodes
-
-#@pytest.fixture
-def auction():
-    auction = Auction()
-    auction.make_params = make_params
-    auction.make_graph()
-    return auction
 
 def test_add_node(nodes):
     n = nodes[0]
@@ -69,14 +59,5 @@ def test_node(params):
     return n, nodez
 
 def test_clock(winner, seller):
-    start = time.time()
-    buyers=auction.node_list('buyer')
-    sellers = auction.node_list('seller')
-    c = Clock(winner=buyers[0], 
-              seller=sellers[0], 
-              neighbors=auction.node_list(buyers[0]), 
-              ts=pd.to_timedelta(0)
-              )
-      
-    return c
+    pass
 

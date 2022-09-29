@@ -1,5 +1,4 @@
 import pytest
-from .params import make_params
 
 @pytest.fixture
 def params():

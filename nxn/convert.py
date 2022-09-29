@@ -2,6 +2,7 @@ import random
 import numpy as np
 import networkx as nx
 import pandas as pd
+np.set_printoptions(precision=2)
 
 import itertools
 import warnings
@@ -42,8 +43,10 @@ def to_numpy_array(
         else:
             raise ValueError
 
+    nodes = [n.name for n in nodelist]
+    #nodes = dict(zip(names, range(nlen)))
     # Map nodes to row/col in matrix
-    idx = dict(zip(nodelist, range(nlen)))
+    idx = dict(zip(nodes, range(nlen)))
     #if len(nodelist) < len(G):
     #    G = G.subgraph(nodelist).copy()
 
@@ -76,7 +79,6 @@ def to_numpy_array(
     A[j, i] = wts
 
     return A
-
 
 
 def from_pandas_edgelist(

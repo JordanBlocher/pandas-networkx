@@ -5,6 +5,14 @@ from .node import Node
 import pandas as pd
 import time
 
+class Radio:
+
+    def __init__(self, R, T):
+        r = dist(R, T)
+        sR = pT*gT/(4*np.pi*r*r)
+        aeR = l*gR/(4*np.pi)
+        pR = aeR*sR
+
 class Clock(nxNode):
 
     ts = pd.to_timedelta(0)

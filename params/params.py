@@ -20,6 +20,8 @@ def make_params():
     noise = df.noise,
     nsellers = df.nsellers,
     nbuyers = df.nbuyers,
+    clamp=df.clamp,
+    Z0 = 376.730313668, #(free) impedance in ohms
     # nnodes, g_mod, and nbuyers/sellers are not independent, 
     # there should be an optimal
     # formula for EQ
@@ -44,8 +46,9 @@ def make_params():
                                 size=nnodes+15
                                 ),         
             flow=-1,
-            price = rng.poisson(
-                        df.buyer_max_price,
+            price = rng.normal(
+                        50,
+                        20,
                         size=nnodes+15
                         )
             )),
@@ -64,8 +67,9 @@ def make_params():
                                 size=nnodes+15
                                 ),         
             flow=1,
-            price = rng.poisson(
-                        df.seller_max_price,
+            price = rng.normal(
+                        50,
+                        20,
                         size=nnodes+15
                         )
             

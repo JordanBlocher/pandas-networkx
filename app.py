@@ -16,10 +16,10 @@ from sim import MarketSim
 from params import make_params
 
 def get_new_data():
-    global auction_round
+    global fig
     while True: #and auction_round < nrounds:
         try:
-            df = do_round()
+            fig = do_round()
             time.sleep(.1)
         except KeyboardInterrupt:
             executor.shutdown()
@@ -42,6 +42,8 @@ def make_layout():
     return html.Div(
         [
         html.Br(),
+        html.Br(),
+        html.Br(),
         dcc.Graph(
             id='price', 
             figure=fig, 
@@ -52,6 +54,7 @@ def make_layout():
 
 start_time = time.time()     
 auction_round = 0
+global fig
 sim = MarketSim(make_params)
 fig = sim.fig
 

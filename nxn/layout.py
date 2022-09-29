@@ -57,6 +57,7 @@ def spectral_layout(G, weight="capacity", scale=1, center=None, dim=3):
     A = to_numpy_array(G, weight=weight)
     pos = _spectral(A, dim)
     #pos = rescale_layout(pos, scale=scale) + center
+    pos = pos.round(2)
     pos = dict(zip(G, pos))
     return pos
 
